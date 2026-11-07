@@ -1,0 +1,39 @@
+import org.springframework.boot.gradle.tasks.run.BootRun
+
+plugins {
+    id 'org.springframework.boot' version '3.4.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+    id 'java'
+    id 'war'
+}
+
+group = 'com.getbridge'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation("org.apache.commons:commons-csv:1.14.0")
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+//tasks.register('runProcess', BootRun) {
+//    mainClass.set('com.desc.calc.CalcApp')
+//    args = ['arg1', 'arg2']
+//    classpath = sourceSets.main.runtimeClasspath
+//}
+//
+//tasks.register('runSimBrief', BootRun) {
+//    mainClass.set('com.desc.calc.SimBriefApp')
+//    args = ['arg1']
+//    classpath = sourceSets.main.runtimeClasspath
+//}
