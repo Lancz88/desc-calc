@@ -673,3 +673,87 @@ h1 em { font-family: Georgia, "Times New Roman", serif; color: var(--peach); fon
     color: var(--peach);
     border-color: var(--peach);
 }
+
+/* Import errors keep the landing page available, with a dismissible notification. */
+.import-error {
+    position: fixed;
+    z-index: 10;
+    right: 28px;
+    bottom: 28px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: min(480px, calc(100% - 40px));
+    padding: 22px;
+    border: 1px solid rgba(242,198,163,.55);
+    border-radius: 12px;
+    background: #18283a;
+    box-shadow: 0 16px 48px rgba(0,0,0,.4);
+}
+
+.import-error[hidden] {
+    display: none;
+}
+
+.import-error-symbol {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--peach);
+    border-radius: 50%;
+    color: var(--peach);
+}
+
+.import-error-content {
+    min-width: 0;
+}
+
+.import-error h2 {
+    margin: 2px 0 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.import-error p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #e4d8ce;
+    overflow-wrap: anywhere;
+}
+
+.import-error .import-error-hint {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.import-error button {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.import-error button:hover {
+    color: var(--peach);
+    background: rgba(242,198,163,.1);
+}
+
+@media (max-width: 600px) {
+    .import-error {
+        right: 20px;
+        bottom: 20px;
+        padding: 18px;
+    }
+}

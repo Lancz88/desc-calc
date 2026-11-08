@@ -7,7 +7,7 @@
     <meta name="description" content="A little more calm between cruise and touchdown. Plan a smoother descent with DESC/CALC.">
     <title>DESC/CALC — A smoother way down</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261108-layout5" th:href="@{/css/home.css(v='20261108-layout5')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261108-layout6" th:href="@{/css/home.css(v='20261108-layout6')}">
 </head>
 <body>
     <div class="sky" aria-hidden="true"></div>
@@ -41,7 +41,7 @@
                 </form>
                 <p class="button-caption connection-status" id="connection-status" role="status" aria-live="polite"
                    th:attr="data-state=${panelConnected ? 'connected' : 'disconnected'}"
-                   th:text="${panelConnected ? 'Panel connected. You can request a flight plan.' : 'Open the DESC PLAN panel in MSFS to connect.'}">Checking panel connection…</p>
+                   th:text="${panelConnected ? 'Panel connected. Once your route is ready in the MCDU, import your flight plan.' : 'Open the GlideLink in-game panel in MSFS to connect.'}">Checking panel connection…</p>
                 <a class="sample-import" href="/flight-plan/csv" th:href="@{/flight-plan/csv}">Use sample CSV <span aria-hidden="true">&#8594;</span></a>
                 <noscript><p class="button-caption">Reload this page after connecting the MSFS panel.</p></noscript>
             </section>
@@ -67,6 +67,17 @@
         </footer>
     </div>
 
-    <script src="/js/home.js?v=20261108-import1" th:src="@{/js/home.js(v='20261108-import1')}" defer></script>
+    <aside class="import-error" id="import-error" role="alert" th:if="${importError != null}">
+        <span class="import-error-symbol" aria-hidden="true">!</span>
+        <div class="import-error-content">
+            <h2>Couldn't import your flight plan</h2>
+            <p th:text="${importError}"></p>
+            <p class="import-error-hint">Check the MSFS panel and loaded route, then try again. The sample CSV is also available.</p>
+        </div>
+        <button id="dismiss-import-error" type="button" aria-label="Dismiss import error">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+    </aside>
+    <script src="/js/home.js?v=20261108-import7" th:src="@{/js/home.js(v='20261108-import7')}" defer></script>
 </body>
 </html>

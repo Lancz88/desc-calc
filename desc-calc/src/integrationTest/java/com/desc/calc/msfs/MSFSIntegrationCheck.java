@@ -57,9 +57,18 @@ public class MSFSIntegrationCheck {
                     "web connection state is not cached");
             check(call(web, "GET", "/msfs/status", null).statusCode() == 404, "no panel status endpoint");
             check(call(web, "GET", "/msfs/flightplan", null).statusCode() == 404, "no panel read endpoint");
-            check(call(web, "GET", "/flight-plan", null).statusCode() == 503, "disconnected import");
+            var disconnectedImport = call(web, "GET", "/flight-plan", null);
+            check(disconnectedImport.statusCode() == 503, "disconnected import");
+            check(disconnectedImport.headers().firstValue("Content-Type").orElse("").contains("text/html")
+                    && disconnectedImport.body().contains("id=\"import-error\"")
+                    && disconnectedImport.body().contains("id=\"dismiss-import-error\""),
+                    "web import failure renders a dismissible notice instead of JSON");
+            check(disconnectedImport.body().contains("Use sample CSV") && !landing.contains("id=\"import-error\""),
+                    "error page retains CSV option and normal landing has no notice");
             check(call(web, "GET", "/flight-plan/csv", null).body().contains("waypoints-paste.csv"), "CSV works disconnected");
-            check(call(panelApi, "POST", "/poll", "[]").statusCode() == 400, "reject non-object");
+            var invalidPoll = call(panelApi, "POST", "/poll", "[]");
+            check(invalidPoll.statusCode() == 400, "reject non-object");
+            check(json(invalidPoll).path("error").asText().equals("INVALID_JSON"), "panel errors remain JSON");
             check(call(panelApi, "POST", "/poll", "{}junk").statusCode() == 400, "reject trailing JSON");
             check(call(panelApi, "POST", "/poll", "{\"x\":\"" + "x".repeat(17000) + "\"}").statusCode() == 413,
                     "bounded heartbeat payload");
@@ -82,6 +91,17 @@ public class MSFSIntegrationCheck {
             check(heartbeat.headers().firstValue("Access-Control-Allow-Origin").orElse("").equals("coui://html_ui"),
                     "panel receives CORS headers on heartbeat");
             check(service.getStatus().panelConnected(), "application service reports panel status");
+            call(panelApi, "POST", "/poll", """
+                    {"state":"ready","telemetry":{"sampledAt":"2026-11-08T16:00:00Z",
+                    "groundSpeedKnots":420.25,"nextWaypoint":"TELTU","distanceToNextWaypointNm":32.4}}
+                    """);
+            JsonNode telemetry = service.getStatus().diagnostics().path("telemetry");
+            check(telemetry.path("groundSpeedKnots").asDouble() == 420.25
+                    && telemetry.path("nextWaypoint").asText().equals("TELTU")
+                    && telemetry.path("distanceToNextWaypointNm").asDouble() == 32.4,
+                    "poll preserves optional simulator telemetry");
+            call(panelApi, "POST", "/poll", "{}");
+            check(!service.getStatus().diagnostics().has("telemetry"), "missing telemetry does not reuse previous sample");
             String connectedLanding = call(web, "GET", "/", null).body();
             check(!Pattern.compile("<button(?=[^>]*id=\"import-flight-plan\")(?=[^>]*disabled)[^>]*>")
                     .matcher(connectedLanding).find(), "simulator import enabled after heartbeat");
@@ -131,7 +151,11 @@ public class MSFSIntegrationCheck {
 
             var timeout = async(web, "/flight-plan");
             String lateId = command(panelApi);
-            check(timeout.get(4, TimeUnit.SECONDS).statusCode() == 504, "missing result times out");
+            var timeoutPage = timeout.get(4, TimeUnit.SECONDS);
+            check(timeoutPage.statusCode() == 504, "missing result times out");
+            check(timeoutPage.body().contains("id=\"import-error\"")
+                    && timeoutPage.body().contains("did not return a flight plan in time"),
+                    "timeout shows a useful import error on landing page");
             check(call(panelApi, "POST", "/flightplan/" + lateId + "?kind=ok", snapshot.toString()).statusCode() == 409,
                     "late result rejected");
             check(call(web, "GET", "/flight-plan/csv", null).statusCode() == 200, "CSV survives panel failure");

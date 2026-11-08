@@ -157,7 +157,7 @@ public class MSFSAdapter {
                 throw failure(409, "BUSY", "Another flight plan import is in progress.");
             }
             if (!getPanelStatus().panelConnected()) {
-                throw failure(503, "PANEL_DISCONNECTED", "Open the DESC PLAN panel configured for this application and keep it visible.");
+                throw failure(503, "PANEL_DISCONNECTED", "Open the GlideLink panel configured for this application and keep it visible.");
             }
             pendingRequest = new PendingRequest();
             return pendingRequest;

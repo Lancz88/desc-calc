@@ -1,4 +1,4 @@
-﻿/* Landing-page connection state only; flight plan imports remain normal form navigation. */
+/* Landing-page connection state only; flight plan imports remain normal form navigation. */
 (function () {
     "use strict";
 
@@ -8,6 +8,15 @@
     const status = document.getElementById("connection-status");
     let importing = false;
     let connected = !button.disabled;
+
+    const errorNotice = document.getElementById("import-error");
+    const dismissError = document.getElementById("dismiss-import-error");
+
+    if (errorNotice && dismissError) {
+        dismissError.addEventListener("click", function () {
+            errorNotice.hidden = true;
+        });
+    }
 
     function showConnection(state, message) {
         connected = state === "connected";
@@ -32,11 +41,11 @@
 
             if (!importing) {
                 showConnection(active ? "connected" : "disconnected", active
-                    ? "Panel connected. You can request a flight plan."
-                    : "Open the DESC PLAN panel in MSFS to connect.");
+                    ? "Panel connected. Once your route is ready in the MCDU, import your flight plan."
+                    : "Open the GlideLink in-game panel in MSFS to connect.");
             }
         } catch (error) {
-            if (!importing) showConnection("unavailable", "Connection unavailable. Retrying shortly.");
+            if (!importing) showConnection("unavailable", "Server unavailable.");
         } finally {
             clearTimeout(timeout);
             setTimeout(refreshConnection, 2000);
