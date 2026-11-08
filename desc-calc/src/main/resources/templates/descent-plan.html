@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101e31">
+    <title>Descent plan — DESC/CALC</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
+    <link rel="stylesheet" href="/css/home.css?v=20261108-layout4" th:href="@{/css/home.css(v='20261108-layout4')}">
+</head>
+<body class="plan-page">
+    <div class="sky" aria-hidden="true"></div>
+    <div class="page-shell">
+        <header class="site-header">
+            <a class="brand" href="/" th:href="@{/}" aria-label="DESC/CALC home">
+                <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                    <path d="M5 10h10l10 20h10M5 30h30" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="15" cy="10" r="3" fill="currentColor"/>
+                </svg>
+                <span>DESC<span class="brand-slash">/</span>CALC</span>
+            </a>
+            <span class="header-label">YOUR PERSONAL FLIGHT COMPANION</span>
+            <button class="back-link result-back" type="submit" form="edit-plan"><span aria-hidden="true">←</span> Back to flight plan</button>
+        </header>
+
+        <main class="plan-main">
+            <section class="plan-heading" aria-labelledby="result-title">
+                <div>
+                    <div class="eyebrow"><span aria-hidden="true"></span>YOUR ARRIVAL, CALCULATED</div>
+                    <h1 id="result-title">Your descent <em>plan.</em></h1>
+                    <p class="plan-description">A clear sequence, from top of descent to final approach.</p>
+                </div>
+            </section>
+
+            <form id="edit-plan" method="post" th:action="@{/flight-plan/edit}" th:object="${flightPlan}">
+                <input type="hidden" th:field="*{cruiseAltitude}">
+                <input type="hidden" th:field="*{initialSpeed}">
+                <input type="hidden" th:field="*{tdExtraDistance}">
+                <input type="hidden" th:field="*{preparationLeadDistance}">
+                <th:block th:each="waypoint, row : *{waypoints}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].idx}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].name}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].distanceToNext}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].altHold}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].altAbove}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].altBelow}">
+                    <input type="hidden" th:field="*{waypoints[__${row.index}__].speed}">
+                </th:block>
+            </form>
+
+            <section class="plan-workspace result-workspace" aria-label="Calculated descent plan">
+                <div class="departure-settings">
+                    <button class="plan-back-arrow" type="submit" form="edit-plan" aria-label="Back to flight plan" title="Back to flight plan">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+                            <path d="M19 12H5m7-7-7 7 7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <span>CRUISE <strong th:text="|${flightPlan.cruiseAltitude} FT|"></strong></span>
+                    <span>INITIAL DESCENT SPEED <strong th:text="|${flightPlan.initialSpeed} KT|"></strong></span>
+                </div>
+                <div class="arrival-milestones">
+                    <div class="top-of-descent descent-point">
+                        <span class="tod-label">T/D</span>
+                        <div><h2 id="adjusted-td" th:text="${timing.topOfDescent.label}"></h2><p th:text="|Start descent · includes ${flightPlan.tdExtraDistance} NM extra distance|"></p></div>
+                        <span class="tod-angle">3.0°<small>INITIAL ANGLE</small></span>
+                    </div>
+                    <div class="top-of-descent preparation-point">
+                        <span class="tod-label prep-label">PREP</span>
+                        <div><h2 id="start-preparation" th:text="${timing.startPreparation.label}"></h2><p th:text="|Start preparation · ${flightPlan.preparationLeadDistance} NM before T/D|"></p></div>
+                    </div>
+                </div>
+                <div class="result-table-scroll" role="region" aria-label="Descent instructions" tabindex="0">
+                    <table class="descent-table">
+                        <caption class="visually-hidden">Ordered descent instructions. Distances are nautical miles to the next route waypoint, altitudes are feet and speeds are knots.</caption>
+                        <thead><tr><th scope="col">Step</th><th scope="col">Waypoint</th><th scope="col">To next waypoint <span>NM</span></th><th scope="col">Actions</th></tr></thead>
+                        <tbody>
+                            <tr th:each="step, row : ${plan.waypointActions}">
+                                <td class="step-number" th:text="${row.count}"></td>
+                                <th scope="row" th:text="${step.waypoint}"></th>
+                                <td class="step-distance" th:text="${step.distanceToNext}"></td>
+                                <td class="step-instruction">
+                                    <ul class="waypoint-actions">
+                                        <li th:each="instruction : ${step.instructions}" th:text="${instruction}"></li>
+                                    </ul>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="editor-notice"><span class="notice-symbol" aria-hidden="true">i</span><p>Distances in NM · altitudes in FT · speeds in KT · descent angles in degrees.<br>T/D is not corrected for wind.</p></div>
+                <div class="result-actions">
+                    <button type="submit" form="edit-plan" class="back-link result-back">← Edit flight plan</button>
+                    <details class="text-itinerary"><summary>View text itinerary</summary><pre class="itinerary" th:text="${plan.itinerary}"></pre></details>
+                </div>
+            </section>
+            <p class="plan-endnote">A clear plan leaves more room for the view.</p>
+        </main>
+
+        <footer class="site-footer">
+            <span class="footer-tag"><span aria-hidden="true">✦</span> BUILT FOR THE WAY YOU FLY</span>
+            <span class="footer-signoff">Enjoy the arrival.</span>
+        </footer>
+    </div>
+</body>
+</html>

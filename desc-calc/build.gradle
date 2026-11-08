@@ -1,5 +1,3 @@
-import org.springframework.boot.gradle.tasks.run.BootRun
-
 plugins {
     id 'org.springframework.boot' version '3.4.4'
     id 'io.spring.dependency-management' version '1.1.6'
@@ -15,7 +13,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation("org.apache.commons:commons-csv:1.14.0")
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
     compileOnly 'org.projectlombok:lombok'
@@ -25,15 +24,3 @@ dependencies {
 test {
     useJUnitPlatform()
 }
-
-//tasks.register('runProcess', BootRun) {
-//    mainClass.set('com.desc.calc.CalcApp')
-//    args = ['arg1', 'arg2']
-//    classpath = sourceSets.main.runtimeClasspath
-//}
-//
-//tasks.register('runSimBrief', BootRun) {
-//    mainClass.set('com.desc.calc.SimBriefApp')
-//    args = ['arg1']
-//    classpath = sourceSets.main.runtimeClasspath
-//}

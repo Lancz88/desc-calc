@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101e31">
+    <title>Flight plan — DESC/CALC</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
+    <link rel="stylesheet" href="/css/home.css?v=20261108-layout4" th:href="@{/css/home.css(v='20261108-layout4')}">
+</head>
+<body class="plan-page">
+    <div class="sky" aria-hidden="true"></div>
+    <div class="page-shell">
+        <header class="site-header">
+            <a class="brand" href="/" th:href="@{/}" aria-label="DESC/CALC home">
+                <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                    <path d="M5 10h10l10 20h10M5 30h30" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="15" cy="10" r="3" fill="currentColor"/>
+                </svg>
+                <span>DESC<span class="brand-slash">/</span>CALC</span>
+            </a>
+            <span class="header-label">YOUR PERSONAL FLIGHT COMPANION</span>
+            <a class="back-link" href="/" th:href="@{/}"><span aria-hidden="true">←</span> Back to the sky</a>
+        </header>
+
+        <main class="plan-main">
+            <section class="plan-heading" aria-labelledby="plan-title">
+                <div>
+                    <div class="eyebrow"><span aria-hidden="true"></span>YOUR ARRIVAL, IN DETAIL</div>
+                    <h1 id="plan-title">The flight <em>plan.</em></h1>
+                    <p class="plan-description">Every waypoint. Every constraint. A little more clarity before the descent.</p>
+                </div>
+                <div class="source-label"><span class="status-dot" aria-hidden="true"></span>CSV SNAPSHOT<span class="source-file">waypoints-paste.csv</span></div>
+            </section>
+
+            <form class="plan-workspace" aria-label="Flight plan editor" method="post" th:action="@{/flight-plan}" th:object="${flightPlan}">
+                <div class="plan-errors" role="alert" th:if="${#fields.hasAnyErrors()}">
+                    <strong>Please check your inputs</strong>
+                    <ul><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
+                </div>
+                <div class="plan-summary">
+                    <div class="summary-stat"><strong th:text="${#lists.size(flightPlan.waypoints)}">0</strong><span>WAYPOINTS</span></div>
+                    <div class="summary-stat"><strong><span th:text="${totalDistance}">0</span><small> NM</small></strong><span>ROUTE DISTANCE</span></div>
+                    <div class="summary-stat"><strong th:text="${constrainedWaypoints}">0</strong><span>CONSTRAINED POINTS</span></div>
+                    <div class="calculation-controls summary-controls">
+                        <button class="generate-button" type="submit">Generate descent plan <span aria-hidden="true">↘</span></button>
+                        <label>Cruise altitude <span class="setting-value"><input type="number" min="1000" max="60000" step="1" th:field="*{cruiseAltitude}" required><span class="field-unit">FT</span></span></label>
+                        <label>Initial descent speed <span class="setting-value"><input type="number" min="100" max="600" step="1" th:field="*{initialSpeed}" required><span class="field-unit">KT</span></span></label>
+                        <label>T/D extra distance <span class="setting-value"><input type="number" min="0" max="1000" step="1" th:field="*{tdExtraDistance}" title="Extra distance added to the calculated T/D; does not change the descent path" required><span class="field-unit">NM</span></span></label>
+                        <label>Preparation lead distance <span class="setting-value"><input type="number" min="0" max="1000" step="1" th:field="*{preparationLeadDistance}" title="Distance before the adjusted T/D to start preparing" required><span class="field-unit">NM</span></span></label>
+                    </div>
+                </div>
+
+                <div class="table-toolbar">
+                    <div><h2>Waypoints &amp; constraints</h2><p id="table-order">From destination backwards · #1 is the last waypoint before the runway.</p></div>
+                    <span class="table-hint">Empty constraint = unrestricted</span>
+                </div>
+
+                <div class="table-scroll" role="region" aria-label="Editable waypoint table; scroll horizontally on smaller screens" tabindex="0">
+                    <table class="waypoint-table" aria-describedby="table-order editor-notice">
+                        <caption class="visually-hidden">Imported waypoints with editable distances, altitude constraints in feet and maximum speeds in knots. Edits are not saved.</caption>
+                        <colgroup><col class="column-index"><col class="column-waypoint"><col><col><col><col><col></colgroup>
+                        <thead>
+                            <tr class="column-groups"><th colspan="3" scope="colgroup">THE ROUTE</th><th colspan="3" scope="colgroup">ALTITUDE CONSTRAINTS</th><th scope="col">SPEED</th></tr>
+                            <tr>
+                                <th scope="col" class="index-cell">#</th>
+                                <th scope="col">Waypoint</th>
+                                <th scope="col">To next <span>NM</span></th>
+                                <th scope="col">At <span>FT</span></th>
+                                <th scope="col">At or above <span>FT</span></th>
+                                <th scope="col">At or below <span>FT</span></th>
+                                <th scope="col">Max speed <span>KT</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="waypoint, row : *{waypoints}">
+                                <th class="index-cell" scope="row"><span th:text="${waypoint.idx}">1</span><input type="hidden" th:field="*{waypoints[__${row.index}__].idx}"></th>
+                                <td><input class="waypoint-name" type="text" readonly th:field="*{waypoints[__${row.index}__].name}" th:attr="aria-label=|Waypoint name for row ${waypoint.idx}|" required></td>
+                                <td><input type="number" min="1" max="10000" step="1" th:field="*{waypoints[__${row.index}__].distanceToNext}" th:attr="aria-label=|Distance to next waypoint from ${waypoint.name}, nautical miles|" required></td>
+                                <td><input type="number" min="0" step="1" placeholder="—" th:field="*{waypoints[__${row.index}__].altHold}" th:attr="aria-label=|Exact altitude for ${waypoint.name}, feet|"></td>
+                                <td><input type="number" min="0" step="1" placeholder="—" th:field="*{waypoints[__${row.index}__].altAbove}" th:attr="aria-label=|Minimum altitude for ${waypoint.name}, feet|"></td>
+                                <td><input type="number" min="0" step="1" placeholder="—" th:field="*{waypoints[__${row.index}__].altBelow}" th:attr="aria-label=|Maximum altitude for ${waypoint.name}, feet|"></td>
+                                <td><input type="number" min="0" step="1" placeholder="—" th:field="*{waypoints[__${row.index}__].speed}" th:attr="aria-label=|Maximum speed for ${waypoint.name}, knots|"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="editor-notice" id="editor-notice">
+                    <span class="notice-symbol" aria-hidden="true">i</span>
+                    <p>Edit the route, then select Generate descent plan above.<br>
+                        Changes are used for this calculation only; the original CSV stays untouched.</p>
+                </div>
+            </form>
+            <p class="plan-endnote">A clear plan leaves more room for the view.</p>
+        </main>
+
+        <footer class="site-footer">
+            <span class="footer-tag"><span aria-hidden="true">✦</span> BUILT FOR THE WAY YOU FLY</span>
+            <span class="footer-signoff">Enjoy the arrival.</span>
+        </footer>
+    </div>
+</body>
+</html>

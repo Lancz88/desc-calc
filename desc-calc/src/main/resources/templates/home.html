@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101e31">
+    <meta name="description" content="A little more calm between cruise and touchdown. Plan a smoother descent with DESC/CALC.">
+    <title>DESC/CALC — A smoother way down</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
+    <link rel="stylesheet" href="/css/home.css?v=20261108-layout4" th:href="@{/css/home.css(v='20261108-layout4')}">
+</head>
+<body>
+    <div class="sky" aria-hidden="true"></div>
+    <div class="page-shell">
+        <header class="site-header">
+            <a class="brand" href="/" th:href="@{/}" aria-label="DESC/CALC home">
+                <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                    <path d="M5 10h10l10 20h10M5 30h30" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="15" cy="10" r="3" fill="currentColor"/>
+                </svg>
+                <span>DESC<span class="brand-slash">/</span>CALC</span>
+            </a>
+            <span class="header-label">YOUR PERSONAL FLIGHT COMPANION</span>
+            <span class="sim-badge"><span class="status-dot" aria-hidden="true"></span>MSFS 2020</span>
+        </header>
+
+        <main class="hero">
+            <section class="hero-copy" aria-labelledby="hero-title">
+                <div class="eyebrow"><span aria-hidden="true"></span>LESS WORKLOAD. MORE SKY.</div>
+                <h1 id="hero-title">A smoother<br>way <em>down.</em></h1>
+                <p class="hero-description">From cruising altitude to your final approach.<br class="desktop-break">
+                    Turn your flight plan into a clear, considered descent.</p>
+                <a class="import-button" id="import-flight-plan" href="/flight-plan" th:href="@{/flight-plan}">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Import flight plan</span>
+                    <span class="button-arrow" aria-hidden="true">↗</span>
+                </a>
+                <p class="button-caption">Your route. Your constraints. A clearer arrival.</p>
+            </section>
+
+            <aside class="flight-note" aria-label="Flight planning philosophy">
+                <div class="note-top"><span class="note-index">01 / THE DESCENT</span><span class="note-symbol" aria-hidden="true">↘</span></div>
+                <svg class="descent-path" viewBox="0 0 280 66" fill="none" aria-hidden="true">
+                    <path d="M8 14h70l106 38h88" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M78 14v42M184 52v4" stroke="currentColor" stroke-opacity=".3" stroke-dasharray="3 4"/>
+                    <circle cx="78" cy="14" r="4" fill="#f2c6a3"/>
+                    <circle cx="184" cy="52" r="3" fill="#f2c6a3"/>
+                    <path d="M8 60h264" stroke="currentColor" stroke-opacity=".16"/>
+                </svg>
+                <h2>Make room for the view.</h2>
+                <p>A thoughtful plan.<br>A little less to think about.</p>
+            </aside>
+        </main>
+
+        <footer class="site-footer">
+            <span class="footer-tag"><span aria-hidden="true">✦</span> BUILT FOR THE WAY YOU FLY</span>
+            <span class="footer-coordinate">CRUISE <span class="footer-route" aria-hidden="true"></span> APPROACH</span>
+            <span class="footer-signoff">Enjoy the arrival.</span>
+        </footer>
+    </div>
+
+</body>
+</html>

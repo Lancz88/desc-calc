@@ -45,7 +45,7 @@ public class SpringApp {
                 throw new RuntimeException("Failed parsing input arguments, " + e);
             }
 
-            descentService.process(csvService.read(CSV_FILE_PATH));
+            System.out.println(descentService.process(csvService.read(CSV_FILE_PATH)).itinerary());
         };
     }
 

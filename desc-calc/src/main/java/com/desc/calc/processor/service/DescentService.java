@@ -1,6 +1,7 @@
 package com.desc.calc.processor.service;
 
 import com.desc.calc.processor.obj.Waypoint;
+import com.desc.calc.processor.obj.DescentPlan;
 import com.desc.calc.processor.service.processor.ChallengerProcessor;
 import com.desc.calc.processor.service.processor.ConstraintsProcessor;
 import com.desc.calc.processor.service.processor.DefragmentationProcessor;
@@ -10,6 +11,7 @@ import com.desc.calc.processor.service.processor.decel.FlChangeDecelProcessor;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.desc.calc.processor.CalcUtil.*;
@@ -42,7 +44,9 @@ public class DescentService {
         this.challengerProcessor = challengerProcessor;
     }
 
-    public void process(List<Waypoint> waypoints) {
+    public DescentPlan process(List<Waypoint> waypoints) {
+
+        initialAngle = null;
 
         // Sort waypoints by distance from destination (descending)
         waypoints.sort(Comparator.comparingInt(Waypoint::getIdx).reversed());
@@ -61,7 +65,7 @@ public class DescentService {
         flChangeDecelProcessor.markFlChange(waypoints);
 
         printWPInfo(waypoints);
-        printItinerary(waypoints);
+        return printItinerary(waypoints);
     }
 
     private void processVerticalPath(List<Waypoint> waypoints) {
@@ -79,9 +83,8 @@ public class DescentService {
         challengerProcessor.processPath(waypoints);
     }
 
-    private String calcTopOfDescent(int crzAlt, List<Waypoint> waypoints) {
+    private DescentPlan.ReferencePoint calcTopOfDescent(int crzAlt, List<Waypoint> waypoints) {
 
-        String tdMessage = "";
         for (int i = 0; i <= waypoints.size() - 1; i++) {
 
             Waypoint wp = waypoints.get(i);
@@ -98,11 +101,10 @@ public class DescentService {
                     distToWp = (int) ((gs - ts) * windAltRatio / 10) + distToWp;
                 }
 
-                tdMessage = wpNext.getName() + " + " + distToWp;
-                break;
+                return new DescentPlan.ReferencePoint(wpNext.getName(), distToWp);
             }
         }
-        return tdMessage;
+        throw new IllegalStateException("No top of descent could be calculated");
     }
 
     private void resetDistancesToEnd(List<Waypoint> waypoints) {
@@ -129,12 +131,16 @@ public class DescentService {
         });
     }
 
-    private void printItinerary(List<Waypoint> waypoints) {
+    private DescentPlan printItinerary(List<Waypoint> waypoints) {
 
-        String topOfDescendMsg = calcTopOfDescent(crzAlt, waypoints);
+        StringBuilder plan = new StringBuilder();
+        List<DescentPlan.Step> steps = new ArrayList<>();
 
-        System.out.println("\n--------------- DES PLAN ---------------");
-        System.out.println("\nT/D  --   " + topOfDescendMsg + "  --  DESCEND BY " + roundAngle(initialAngle) + "\n");
+        DescentPlan.ReferencePoint topOfDescent = calcTopOfDescent(crzAlt, waypoints);
+        String topOfDescendMsg = topOfDescent.getLabel();
+
+        plan.append("\n--------------- DES PLAN ---------------").append("\n");
+        plan.append("\nT/D  --   " + topOfDescendMsg + "  --  DESCEND BY " + roundAngle(initialAngle) + "\n").append("\n");
 
         double currentAngle = 0;
         boolean inDesPath = false;
@@ -151,48 +157,51 @@ public class DescentService {
             if (inDesPath) {
 
                 if (wp.getDecelTo() != null) {
-                    wpPrinted = printWp(wp, "DECEL TO " + wp.getDecelTo());
+                    wpPrinted = printWp(plan, steps, wp, "DECEL TO " + wp.getDecelTo());
                 }
 
                 if (wp.getAltHold() != null && wp.getAngle() > 0 && currentAngle != 0) {
-                    wpPrinted = printWp(wp, "HOLD " + wp.getAltHold());
+                    wpPrinted = printWp(plan, steps, wp, "HOLD " + wp.getAltHold());
                 }
 
                 if (wp.getAltBelow() != null && wp.getAltBelow() - wp.getAltCalculated() <= 500 && wp.getAngle() > 0) {
-                    wpPrinted = printWp(wp, "HOLD BELOW " + wp.getAltBelow());
+                    wpPrinted = printWp(plan, steps, wp, "HOLD BELOW " + wp.getAltBelow());
                 }
 
                 if (wp.getAltAbove() != null && wp.getAltCalculated() - wp.getAltAbove() <= 500 && wp.getAngle() > 0) {
-                    wpPrinted = printWp(wp, "HOLD ABOVE " + wp.getAltAbove());
+                    wpPrinted = printWp(plan, steps, wp, "HOLD ABOVE " + wp.getAltAbove());
                 }
 
                 if (wp.getAngle() > 0 && !angleEquals(wp.getAngle(), currentAngle)) {
-                    wpPrinted = printWp(wp, "DESCEND BY " + roundAngle(wp.getAngle()));
+                    wpPrinted = printWp(plan, steps, wp, "DESCEND BY " + roundAngle(wp.getAngle()));
                     currentAngle = wp.getAngle();
 
                 } else if (wp.getAngle() == 0 && !angleEquals(wp.getAngle(), currentAngle)
                         && !isAltBecauseOfDecelPoint(wp, waypoints)) {
 
-                    wpPrinted = printWp(wp, "ALT " + wp.getAltCalculated());
+                    wpPrinted = printWp(plan, steps, wp, "ALT " + wp.getAltCalculated());
                     currentAngle = wp.getAngle();
                 }
 
                 if (wp.getAdditionalMsg() != null) {
                     if (wpPrinted) {
-                        System.out.println(" ");
+                        plan.append(" ").append("\n");
                     }
-                    System.out.println(wp.getAdditionalMsg());
+                    plan.append(wp.getAdditionalMsg()).append("\n");
+                    steps.add(new DescentPlan.Step(wp.getName(), wp.getDistanceToEnd(),
+                            wp.getDistanceToNext(), wp.getAdditionalMsg()));
                     wpPrinted = true;
                 }
             }
 
             if (wpPrinted) {
-                System.out.println(" ");
+                plan.append(" ").append("\n");
                 wpPrinted = false;
             }
         }
-        System.out.println("--------------- END ---------------");
-        System.out.println("(info: normalise T/D with wind)");
+        plan.append("--------------- END ---------------").append("\n");
+        plan.append("(info: normalise T/D with wind)").append("\n");
+        return new DescentPlan(plan.toString(), topOfDescent, steps);
     }
 
     // Check if waypoint got 0 distance due decel reduction, but there is no other path
@@ -230,8 +239,10 @@ public class DescentService {
         return angleEquals(prevWp.getAngle(), nextWpWithDistance.getAngle());
     }
 
-    private boolean printWp(Waypoint wp, String msg) {
-        System.out.println(getWpTag(wp) + msg);
+    private boolean printWp(StringBuilder plan, List<DescentPlan.Step> steps, Waypoint wp, String msg) {
+
+        plan.append(getWpTag(wp)).append(msg).append("\n");
+        steps.add(new DescentPlan.Step(wp.getName(), wp.getDistanceToEnd(), wp.getDistanceToNext(), msg));
         return true;
     }
 
