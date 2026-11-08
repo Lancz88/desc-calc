@@ -24,3 +24,21 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+// Real loopback HTTP checks with a simulated panel; no MSFS or test dependency downloads.
+sourceSets {
+    msfsIntegration {
+        java.srcDir 'src/integrationTest/java'
+        compileClasspath += sourceSets.main.output + configurations.runtimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+
+tasks.register('msfsIntegrationTest', JavaExec) {
+    dependsOn msfsIntegrationClasses
+    classpath = sourceSets.msfsIntegration.runtimeClasspath
+    mainClass = 'com.desc.calc.msfs.MSFSIntegrationCheck'
+    if (project.hasProperty('msfsSnapshot') && project.hasProperty('msfsExpectedCsv')) {
+        args project.property('msfsSnapshot'), project.property('msfsExpectedCsv')
+    }
+}

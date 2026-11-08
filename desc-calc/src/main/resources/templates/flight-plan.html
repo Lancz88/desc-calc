@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#101e31">
     <title>Flight plan — DESC/CALC</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261108-layout4" th:href="@{/css/home.css(v='20261108-layout4')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261108-layout5" th:href="@{/css/home.css(v='20261108-layout5')}">
 </head>
 <body class="plan-page">
     <div class="sky" aria-hidden="true"></div>
@@ -30,7 +30,7 @@
                     <h1 id="plan-title">The flight <em>plan.</em></h1>
                     <p class="plan-description">Every waypoint. Every constraint. A little more clarity before the descent.</p>
                 </div>
-                <div class="source-label"><span class="status-dot" aria-hidden="true"></span>CSV SNAPSHOT<span class="source-file">waypoints-paste.csv</span></div>
+                <div class="source-label"><span class="status-dot" aria-hidden="true"></span><span th:text="${importSource ?: 'ROUTE INPUT'}">ROUTE INPUT</span><span class="source-file" th:text="${importDetail ?: 'Edited waypoints'}">Imported route</span></div>
             </section>
 
             <form class="plan-workspace" aria-label="Flight plan editor" method="post" th:action="@{/flight-plan}" th:object="${flightPlan}">

@@ -37,8 +37,8 @@ h1 em { font-family: Georgia, "Times New Roman", serif; color: var(--peach); fon
 .import-button { display: inline-flex; gap: 14px; align-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 6px; padding: 18px 22px; color: #172435; background: #f4d0b2; box-shadow: 0 8px 32px rgba(8,19,35,.16); cursor: pointer; font-size: 14px; font-weight: 650; transition: background .2s, transform .2s, box-shadow .2s; }
 .import-button > svg { width: 20px; height: 20px; }
 .button-arrow { margin-left: 28px; font-size: 20px; font-weight: 400; }
-.import-button:hover { background: #ffe0c6; transform: translateY(-2px); box-shadow: 0 12px 35px rgba(8,19,35,.25); }
-.import-button:active { transform: translateY(0); }
+.import-button:not(:disabled):hover { background: #ffe0c6; transform: translateY(-2px); box-shadow: 0 12px 35px rgba(8,19,35,.25); }
+.import-button:not(:disabled):active { transform: translateY(0); }
 .button-caption { color: #d0ccd0; font-size: 11px; margin-top: 16px; letter-spacing: .3px; }
 .flight-note { width: 290px; flex-shrink: 0; align-self: flex-end; margin-bottom: 10px; padding: 22px 24px 25px; border: 1px solid rgba(255,255,255,.22); border-radius: 8px; background: rgba(27,39,58,.35); backdrop-filter: blur(16px); animation: arrive 1s .15s ease-out both; }
 .note-top { display: flex; justify-content: space-between; align-items: center; }
@@ -640,4 +640,36 @@ h1 em { font-family: Georgia, "Times New Roman", serif; color: var(--peach); fon
         border-left: 0;
         border-top: 1px solid var(--line);
     }
+}
+
+/* Primary simulator import with an always-available offline sample route. */
+.import-button:disabled {
+    opacity: .48;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.connection-status {
+    min-height: 20px;
+}
+
+.connection-status[data-state="connected"] {
+    color: var(--peach);
+}
+
+.sample-import {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    transition: color .15s, border-color .15s;
+}
+
+.sample-import:hover {
+    color: var(--peach);
+    border-color: var(--peach);
 }

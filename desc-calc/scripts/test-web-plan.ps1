@@ -5,7 +5,7 @@ function Assert-Contains($Content, $Expected) {
     if (!$Content.Contains($Expected)) { throw "Missing expected response content: $Expected" }
 }
 
-$page = Invoke-WebRequest "$BaseUrl/flight-plan" -UseBasicParsing
+$page = Invoke-WebRequest "$BaseUrl/flight-plan/csv" -UseBasicParsing
 Assert-Contains $page.Content 'Generate descent plan'
 Assert-Contains $page.Content 'waypoints[0].name'
 Assert-Contains $page.Content 'Initial descent speed'
@@ -121,7 +121,7 @@ Assert-Contains $response.Content 'Please check your inputs'
 Assert-Contains $response.Content 'Please enter a whole number'
 Assert-Contains $response.Content 'SECONDTEST'
 
-$restored = Invoke-WebRequest "$BaseUrl/flight-plan" -UseBasicParsing
+$restored = Invoke-WebRequest "$BaseUrl/flight-plan/csv" -UseBasicParsing
 Assert-Contains $restored.Content 'GWN30'
 if ($restored.Content.Contains('SECONDTEST')) { throw 'GET did not restore the bundled CSV' }
 $body['waypoints[5].distanceToNext'] = '9'

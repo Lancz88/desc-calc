@@ -7,7 +7,7 @@
     <meta name="description" content="A little more calm between cruise and touchdown. Plan a smoother descent with DESC/CALC.">
     <title>DESC/CALC — A smoother way down</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261108-layout4" th:href="@{/css/home.css(v='20261108-layout4')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261108-layout5" th:href="@{/css/home.css(v='20261108-layout5')}">
 </head>
 <body>
     <div class="sky" aria-hidden="true"></div>
@@ -30,14 +30,20 @@
                 <h1 id="hero-title">A smoother<br>way <em>down.</em></h1>
                 <p class="hero-description">From cruising altitude to your final approach.<br class="desktop-break">
                     Turn your flight plan into a clear, considered descent.</p>
-                <a class="import-button" id="import-flight-plan" href="/flight-plan" th:href="@{/flight-plan}">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    <span>Import flight plan</span>
-                    <span class="button-arrow" aria-hidden="true">↗</span>
-                </a>
-                <p class="button-caption">Your route. Your constraints. A clearer arrival.</p>
+                <form id="msfs-import" method="get" action="/flight-plan" th:action="@{/flight-plan}" th:attr="data-status-url=@{/flight-plan/connection}">
+                    <button class="import-button" id="import-flight-plan" type="submit" th:disabled="${!panelConnected}" aria-describedby="connection-status">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span id="import-label">Import from MSFS</span>
+                        <span class="button-arrow" aria-hidden="true">↗</span>
+                    </button>
+                </form>
+                <p class="button-caption connection-status" id="connection-status" role="status" aria-live="polite"
+                   th:attr="data-state=${panelConnected ? 'connected' : 'disconnected'}"
+                   th:text="${panelConnected ? 'Panel connected. You can request a flight plan.' : 'Open the DESC PLAN panel in MSFS to connect.'}">Checking panel connection…</p>
+                <a class="sample-import" href="/flight-plan/csv" th:href="@{/flight-plan/csv}">Use sample CSV <span aria-hidden="true">&#8594;</span></a>
+                <noscript><p class="button-caption">Reload this page after connecting the MSFS panel.</p></noscript>
             </section>
 
             <aside class="flight-note" aria-label="Flight planning philosophy">
@@ -61,5 +67,6 @@
         </footer>
     </div>
 
+    <script src="/js/home.js?v=20261108-import1" th:src="@{/js/home.js(v='20261108-import1')}" defer></script>
 </body>
 </html>

@@ -1,17 +1,18 @@
 package com.desc.calc.web;
 
+import com.desc.calc.msfs.MSFSService;
 import com.desc.calc.processor.obj.Waypoint;
 import com.desc.calc.processor.service.CSVService;
 import com.desc.calc.web.service.WebDescentService;
 import com.desc.calc.web.service.WebPlanDTO;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.List;
 
@@ -25,44 +26,55 @@ public class HomeController {
 
     private final CSVService csvService;
     private final WebDescentService webDescentService;
+    private final MSFSService msfsService;
 
-    public HomeController(CSVService csvService, WebDescentService webDescentService) {
+    public HomeController(CSVService csvService, WebDescentService webDescentService, MSFSService msfsService) {
 
         this.csvService = csvService;
         this.webDescentService = webDescentService;
-    }
-
-    /**
-     * Restricts form binding to route inputs and limits automatically created rows.
-     */
-    @InitBinder("flightPlan")
-    public void bindFlightPlan(WebDataBinder binder) {
-
-        binder.setAutoGrowCollectionLimit(200);
-        binder.setAllowedFields("cruiseAltitude", "initialSpeed", "tdExtraDistance", "preparationLeadDistance",
-                "waypoints[*].idx", "waypoints[*].name",
-                "waypoints[*].distanceToNext", "waypoints[*].altHold", "waypoints[*].altAbove",
-                "waypoints[*].altBelow", "waypoints[*].speed");
+        this.msfsService = msfsService;
     }
 
     @GetMapping("/")
-    public String home() {
+    public String home(Model model, HttpServletResponse response) {
+
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("panelConnected", msfsService.getStatus().panelConnected());
+
         return "home";
     }
 
+    /** Minimal connection state for the landing page; separate from the panel's POST protocol. */
+    @GetMapping("/flight-plan/connection")
+    @ResponseBody
+    public boolean panelConnected(HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+        return msfsService.getStatus().panelConnected();
+    }
+
     /**
-     * Starts a new editor from the bundled CSV without retaining previous edits.
+     * Requests a fresh simulator snapshot through the MSFS panel connection.
      */
     @GetMapping("/flight-plan")
-    public String flightPlan(Model model) {
+    public String flightPlan(Model model, HttpServletResponse response) {
 
-        List<Waypoint> waypoints = csvService.read(CSV_FILE_PATH);
-        WebPlanDTO form = WebPlanDTO.from(waypoints);
+        response.setHeader("Cache-Control", "no-store");
+        model.addAttribute("importSource", "MSFS SNAPSHOT");
+        model.addAttribute("importDetail", "FlyByWire active plan");
 
-        model.addAttribute("flightPlan", form);
-        summarize(form, model);
+        return showEditor(msfsService.getFlightPlan(), model);
+    }
 
-        return "flight-plan";
+    /**
+     * Keeps the static CSV workflow available independently of the simulator connection.
+     */
+    @GetMapping("/flight-plan/csv")
+    public String csvFlightPlan(Model model) {
+
+        model.addAttribute("importSource", "CSV SNAPSHOT");
+        model.addAttribute("importDetail", CSV_FILE_PATH);
+
+        return showEditor(csvService.read(CSV_FILE_PATH), model);
     }
 
     /**
@@ -97,6 +109,16 @@ public class HomeController {
     public String edit(@ModelAttribute("flightPlan") WebPlanDTO form, BindingResult errors, Model model) {
 
         form.validate(errors);
+        summarize(form, model);
+
+        return "flight-plan";
+    }
+
+    private String showEditor(List<Waypoint> waypoints, Model model) {
+
+        WebPlanDTO form = WebPlanDTO.from(waypoints);
+
+        model.addAttribute("flightPlan", form);
         summarize(form, model);
 
         return "flight-plan";
