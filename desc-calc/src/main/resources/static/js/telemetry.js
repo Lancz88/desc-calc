@@ -10,6 +10,17 @@
     const distance = document.getElementById("live-waypoint-distance");
     const itineraryRows = document.querySelectorAll(".descent-table tbody tr[data-waypoint]");
     const empty = "\u2014";
+    const vsToggle = document.getElementById("live-vs-toggle");
+    const vsPanel = document.getElementById("live-vs-panel");
+    const vsInstruments = ["", "-2"].map((suffix, index) => ({
+        value: document.getElementById(`live-vs-value${suffix}`),
+        angle: document.getElementById(`live-vs-angle${suffix}`),
+        decrease: document.getElementById(`live-vs-decrease${suffix}`),
+        increase: document.getElementById(`live-vs-increase${suffix}`),
+        angleTenths: index === 0 ? 30 : 9
+    }));
+    let vsConnected = false;
+    let vsGroundSpeed = null;
     const localTime = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
     function milestone(id) {
@@ -35,6 +46,38 @@
         return validNumber(value) ? value.toFixed(value < 20 ? 1 : 0) : empty;
     }
 
+    function renderVerticalSpeed() {
+        vsToggle.disabled = !vsConnected;
+        vsPanel.dataset.state = vsConnected ? "connected" : "disconnected";
+        vsInstruments.forEach(instrument => {
+        instrument.decrease.disabled = !vsConnected || instrument.angleTenths <= 1;
+        instrument.increase.disabled = !vsConnected || instrument.angleTenths >= 60;
+        instrument.angle.textContent = (instrument.angleTenths / 10).toFixed(1);
+        // GS (NM/hour) -> feet/minute; tan(angle) gives vertical / horizontal distance.
+        const rate = vsConnected && validNumber(vsGroundSpeed)
+            ? Math.round(vsGroundSpeed * (1852 / 0.3048 / 60)
+                * Math.tan(instrument.angleTenths / 10 * Math.PI / 180) / 100) * 100 : null;
+        instrument.value.textContent = rate === null ? empty : rate === 0 ? "0" : `\u2212${rate}`;
+        });
+    }
+
+    vsToggle.addEventListener("click", () => {
+        if (!vsConnected) return;
+        vsPanel.hidden = !vsPanel.hidden;
+        vsPanel.inert = vsPanel.hidden;
+        vsToggle.setAttribute("aria-expanded", String(!vsPanel.hidden));
+        vsToggle.textContent = vsPanel.hidden ? "Show Live V/S" : "Hide Live V/S";
+    });
+    vsInstruments.forEach(instrument => {
+        instrument.decrease.addEventListener("click", () => {
+            if (vsConnected) { instrument.angleTenths = Math.max(1, instrument.angleTenths - 1); renderVerticalSpeed(); }
+        });
+        instrument.increase.addEventListener("click", () => {
+            if (vsConnected) { instrument.angleTenths = Math.min(60, instrument.angleTenths + 1); renderVerticalSpeed(); }
+        });
+    });
+    renderVerticalSpeed();
+
     function duration(seconds) {
         const total = Math.max(0, Math.round(seconds));
         const hours = Math.floor(total / 3600);
@@ -59,6 +102,9 @@
     function render(data, unavailable) {
         const readings = data && data.telemetry;
         const active = readings && readings.panelConnected === true;
+        vsConnected = !!active;
+        vsGroundSpeed = active ? readings.groundSpeedKnots : null;
+        renderVerticalSpeed();
         connection.dataset.state = active ? "connected" : "disconnected";
         status.textContent = unavailable ? "Server unavailable." : active ? "GlideLink connected" : "GlideLink disconnected";
         speed.textContent = active && validNumber(readings.groundSpeedKnots) ? readings.groundSpeedKnots.toFixed(0) : empty;

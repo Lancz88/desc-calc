@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#101e31">
     <title>Descent plan — DESC/CALC</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261109-live3" th:href="@{/css/home.css(v='20261109-live3')}">
-    <script defer src="/js/telemetry.js?v=20261109-live3" th:src="@{/js/telemetry.js(v='20261109-live3')}"></script>
+    <link rel="stylesheet" href="/css/home.css?v=20261109-strip2" th:href="@{/css/home.css(v='20261109-strip2')}">
+    <script defer src="/js/telemetry.js?v=20261109-strip2" th:src="@{/js/telemetry.js(v='20261109-strip2')}"></script>
 </head>
 <body class="plan-page">
     <div class="sky" aria-hidden="true"></div>
@@ -74,9 +74,37 @@
                 </div>
                 <section class="live-telemetry" id="live-telemetry" th:attr="data-url=@{/flight-plan/telemetry}" data-url="/flight-plan/telemetry" aria-label="Live simulator readings">
                     <div class="telemetry-connection" id="telemetry-connection" data-state="disconnected" role="status"><span aria-hidden="true"></span><span id="telemetry-status">Connecting...</span></div>
+                    <button class="live-vs-toggle" id="live-vs-toggle" type="button" aria-expanded="false" aria-controls="live-vs-panel" disabled>Show Live V/S</button>
                     <div class="telemetry-readings">
                         <span class="telemetry-speed"><span class="telemetry-caption">GS</span> <strong id="live-ground-speed">&mdash;</strong> <span class="telemetry-unit">KT</span></span>
                         <span class="telemetry-next"><strong id="live-waypoint-distance">&mdash;</strong> <span class="telemetry-unit">NM to</span> <strong id="live-next-waypoint">&mdash;</strong></span>
+                    </div>
+                </section>
+                <section class="live-vs-panel" id="live-vs-panel" aria-labelledby="live-vs-title" data-state="disconnected" hidden inert>
+                    <div class="vs-reveal">
+                    <h2 id="live-vs-title" class="visually-hidden">Live V/S</h2>
+                    <div class="vs-instruments">
+                    <div class="vs-instrument" role="group" aria-label="V/S instrument 1">
+                        <div class="vs-controls">
+                            <div class="vs-rate"><span class="vs-caption">V/S</span><div><output id="live-vs-value" aria-label="Recommended descent vertical speed">&mdash;</output><span class="vs-unit">FT/MIN</span></div></div>
+                            <div class="vs-angle-control"><span class="vs-caption">ANGLE</span><div class="vs-stepper">
+                                <button id="live-vs-decrease" type="button" aria-label="Decrease descent angle by 0.1 degrees" disabled>&minus;</button>
+                                <span><output id="live-vs-angle" aria-label="Descent angle in degrees">3.0</output>&deg;</span>
+                                <button id="live-vs-increase" type="button" aria-label="Increase descent angle by 0.1 degrees" disabled>+</button>
+                            </div></div>
+                        </div>
+                    </div>
+                    <div class="vs-instrument" role="group" aria-label="V/S instrument 2">
+                        <div class="vs-controls">
+                            <div class="vs-rate"><span class="vs-caption">V/S</span><div><output id="live-vs-value-2" aria-label="Recommended descent vertical speed 2">&mdash;</output><span class="vs-unit">FT/MIN</span></div></div>
+                            <div class="vs-angle-control"><span class="vs-caption">ANGLE</span><div class="vs-stepper">
+                                <button id="live-vs-decrease-2" type="button" aria-label="Decrease second descent angle by 0.1 degrees" disabled>&minus;</button>
+                                <span><output id="live-vs-angle-2" aria-label="Second descent angle in degrees">0.9</output>&deg;</span>
+                                <button id="live-vs-increase-2" type="button" aria-label="Increase second descent angle by 0.1 degrees" disabled>+</button>
+                            </div></div>
+                        </div>
+                    </div>
+                    </div>
                     </div>
                 </section>
                 <div class="result-table-scroll" role="region" aria-label="Descent instructions" tabindex="0">
