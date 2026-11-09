@@ -757,3 +757,78 @@ h1 em { font-family: Georgia, "Times New Roman", serif; color: var(--peach); fon
         padding: 18px;
     }
 }
+
+/* Live countdowns use a full second row within each milestone. */
+.arrival-milestones .milestone-live {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    color: var(--peach);
+    line-height: 1.7;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Compact live strip between the milestones and the itinerary. */
+.live-telemetry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(13, 27, 43, .28);
+}
+.telemetry-connection {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 11px;
+}
+.telemetry-connection > span:first-child {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #88909b;
+}
+.telemetry-connection[data-state="connected"] > span:first-child {
+    background: #9ed5b5;
+    box-shadow: 0 0 8px rgba(158, 213, 181, .35);
+}
+.telemetry-readings {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+.telemetry-readings strong {
+    color: var(--ink);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+.telemetry-caption, .telemetry-unit {
+    color: var(--muted);
+    font-size: 10px;
+}
+.telemetry-caption { margin-right: 5px; letter-spacing: .1em; }
+.telemetry-next { padding-left: 24px; border-left: 1px solid var(--line); }
+@media (max-width: 600px) {
+    .live-telemetry { padding: 12px 16px; }
+    .telemetry-readings { gap: 12px; }
+    .telemetry-next { padding-left: 12px; }
+}
+/* Follow the next simulator waypoint without moving the reader's scroll position. */
+.descent-table tbody tr.current-waypoint > td,
+.descent-table tbody tr.current-waypoint > th {
+    background: rgba(242, 198, 163, .085);
+}
+.descent-table tbody tr.current-waypoint > :first-child {
+    box-shadow: inset 3px 0 0 var(--peach);
+}
+.descent-table tbody tr.current-waypoint > th {
+    color: var(--peach);
+}

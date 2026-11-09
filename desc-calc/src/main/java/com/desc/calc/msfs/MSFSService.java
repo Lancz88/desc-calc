@@ -30,4 +30,9 @@ public class MSFSService {
     public MSFSStatus getStatus() {
         return adapter.getPanelStatus();
     }
+
+    /** Reads the latest heartbeat values without requesting another flight plan. */
+    public MSFSTelemetry getTelemetry() {
+        return MSFSTelemetry.from(getStatus());
+    }
 }

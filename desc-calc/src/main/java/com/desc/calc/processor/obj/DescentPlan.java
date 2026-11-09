@@ -27,9 +27,9 @@ public record DescentPlan(String itinerary, ReferencePoint topOfDescent, List<St
      * USED BY THYMELEAF! Groups consecutive instructions at the same route location without changing flight order.
      * A later visit to a waypoint with the same name remains a separate group.
      */
-    public List<WaypointActions> getWaypointActions() {
+    public List<WaypointActionsGroup> getWaypointActionsGroups() {
 
-        List<WaypointActions> groups = new ArrayList<>();
+        List<WaypointActionsGroup> groups = new ArrayList<>();
         int index = 0;
 
         while (index < steps.size()) {
@@ -43,7 +43,7 @@ public record DescentPlan(String itinerary, ReferencePoint topOfDescent, List<St
                     && steps.get(index).waypoint().equals(first.waypoint())
                     && steps.get(index).distance() == first.distance());
 
-            groups.add(new WaypointActions(first.waypoint(), first.distanceToNext(), instructions));
+            groups.add(new WaypointActionsGroup(first.waypoint(), first.distanceToNext(), instructions));
         }
 
         return List.copyOf(groups);
@@ -52,9 +52,9 @@ public record DescentPlan(String itinerary, ReferencePoint topOfDescent, List<St
     /**
      * The ordered actions to perform at one waypoint occurrence in the route.
      */
-    public record WaypointActions(String waypoint, int distanceToNext, List<String> instructions) {
+    public record WaypointActionsGroup(String waypoint, int distanceToNext, List<String> instructions) {
 
-        public WaypointActions {
+        public WaypointActionsGroup {
             instructions = List.copyOf(instructions);
         }
     }

@@ -52,6 +52,7 @@ public class HomeController {
         return msfsService.getStatus().panelConnected();
     }
 
+
     /**
      * Requests a fresh simulator snapshot through the MSFS panel connection.
      */

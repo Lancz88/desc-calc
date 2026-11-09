@@ -6,7 +6,8 @@
     <meta name="theme-color" content="#101e31">
     <title>Descent plan — DESC/CALC</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261108-layout6" th:href="@{/css/home.css(v='20261108-layout6')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261109-live3" th:href="@{/css/home.css(v='20261109-live3')}">
+    <script defer src="/js/telemetry.js?v=20261109-live3" th:src="@{/js/telemetry.js(v='20261109-live3')}"></script>
 </head>
 <body class="plan-page">
     <div class="sky" aria-hidden="true"></div>
@@ -59,22 +60,31 @@
                     <span>INITIAL DESCENT SPEED <strong th:text="|${flightPlan.initialSpeed} KT|"></strong></span>
                 </div>
                 <div class="arrival-milestones">
-                    <div class="top-of-descent descent-point">
+                    <div class="top-of-descent descent-point" id="td-milestone" th:attr="data-waypoint=${timing.topOfDescent.waypoint},data-offset=${timing.topOfDescent.distance}">
                         <span class="tod-label">T/D</span>
                         <div><h2 id="adjusted-td" th:text="${timing.topOfDescent.label}"></h2><p th:text="|Start descent · includes ${flightPlan.tdExtraDistance} NM extra distance|"></p></div>
+                        <p class="milestone-live" id="td-countdown">&mdash; NM away &middot; in &mdash; &middot; ETA &mdash; local</p>
                         <span class="tod-angle">3.0°<small>INITIAL ANGLE</small></span>
                     </div>
-                    <div class="top-of-descent preparation-point">
+                    <div class="top-of-descent preparation-point" id="prep-milestone" th:attr="data-waypoint=${timing.startPreparation.waypoint},data-offset=${timing.startPreparation.distance}">
                         <span class="tod-label prep-label">PREP</span>
                         <div><h2 id="start-preparation" th:text="${timing.startPreparation.label}"></h2><p th:text="|Start preparation · ${flightPlan.preparationLeadDistance} NM before T/D|"></p></div>
+                        <p class="milestone-live" id="prep-countdown">&mdash; NM away &middot; in &mdash; &middot; ETA &mdash; local</p>
                     </div>
                 </div>
+                <section class="live-telemetry" id="live-telemetry" th:attr="data-url=@{/flight-plan/telemetry}" data-url="/flight-plan/telemetry" aria-label="Live simulator readings">
+                    <div class="telemetry-connection" id="telemetry-connection" data-state="disconnected" role="status"><span aria-hidden="true"></span><span id="telemetry-status">Connecting...</span></div>
+                    <div class="telemetry-readings">
+                        <span class="telemetry-speed"><span class="telemetry-caption">GS</span> <strong id="live-ground-speed">&mdash;</strong> <span class="telemetry-unit">KT</span></span>
+                        <span class="telemetry-next"><strong id="live-waypoint-distance">&mdash;</strong> <span class="telemetry-unit">NM to</span> <strong id="live-next-waypoint">&mdash;</strong></span>
+                    </div>
+                </section>
                 <div class="result-table-scroll" role="region" aria-label="Descent instructions" tabindex="0">
                     <table class="descent-table">
                         <caption class="visually-hidden">Ordered descent instructions. Distances are nautical miles to the next route waypoint, altitudes are feet and speeds are knots.</caption>
                         <thead><tr><th scope="col">Step</th><th scope="col">Waypoint</th><th scope="col">To next waypoint <span>NM</span></th><th scope="col">Actions</th></tr></thead>
                         <tbody>
-                            <tr th:each="step, row : ${plan.waypointActions}">
+                            <tr th:each="step, row : ${plan.waypointActionsGroups}" th:attr="data-waypoint=${step.waypoint}">
                                 <td class="step-number" th:text="${row.count}"></td>
                                 <th scope="row" th:text="${step.waypoint}"></th>
                                 <td class="step-distance" th:text="${step.distanceToNext}"></td>

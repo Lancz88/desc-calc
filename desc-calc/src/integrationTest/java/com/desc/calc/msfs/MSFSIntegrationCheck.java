@@ -100,8 +100,63 @@ public class MSFSIntegrationCheck {
                     && telemetry.path("nextWaypoint").asText().equals("TELTU")
                     && telemetry.path("distanceToNextWaypointNm").asDouble() == 32.4,
                     "poll preserves optional simulator telemetry");
+            var live = call(web, "GET", "/flight-plan/telemetry", null);
+            check(json(live).path("panelConnected").asBoolean()
+                    && json(live).path("groundSpeedKnots").asDouble() == 420.25
+                    && json(live).path("nextWaypoint").asText().equals("TELTU")
+                    && json(live).path("distanceToNextWaypointNm").asDouble() == 32.4,
+                    "web telemetry returns raw readings");
+            check(live.headers().firstValue("Cache-Control").orElse("").equals("no-store"),
+                    "live telemetry is not cached");
+            String timingContext = """
+                    {"route":[{"name":"FIXC","distanceToNext":6},{"name":"FIXB","distanceToNext":9},
+                    {"name":"TELTU","distanceToNext":12}],
+                    "topOfDescent":{"waypoint":"FIXB","offsetNm":5},
+                    "startPreparation":{"waypoint":"FIXB","offsetNm":15}}
+                    """;
+            var countdown = call(web, "POST", "/flight-plan/telemetry", timingContext);
+            check(countdown.statusCode() == 200
+                    && Math.abs(json(countdown).path("topOfDescent").path("distanceNm").asDouble() - 39.4) < .00001
+                    && Math.abs(json(countdown).path("startPreparation").path("distanceNm").asDouble() - 29.4) < .00001,
+                    "countdown follows reversed route legs and includes both milestone offsets");
+            check(json(countdown).path("topOfDescent").path("secondsRemaining").asLong()
+                    == Math.round(39.4 / 420.25 * 3600), "countdown time uses current GS");
+            check(json(call(web, "POST", "/flight-plan/telemetry", timingContext.replace("TELTU", "UNKNOWN")))
+                    .path("topOfDescent").isNull(), "unmatched live waypoint has no estimate");
+            check(json(call(web, "POST", "/flight-plan/telemetry", timingContext.replace("FIXC", "TELTU")))
+                    .path("topOfDescent").isNull(), "ambiguous live waypoint has no estimate");
+            call(panelApi, "POST", "/poll", """
+                    {"telemetry":{"groundSpeedKnots":0,"nextWaypoint":"FIXB","distanceToNextWaypointNm":10}}
+                    """);
+            var stopped = json(call(web, "POST", "/flight-plan/telemetry", timingContext));
+            check(stopped.path("topOfDescent").path("distanceNm").asDouble() == 5
+                    && stopped.path("topOfDescent").path("secondsRemaining").isNull(),
+                    "waypoint transition updates distance and zero GS suppresses ETA");
+            check(stopped.path("startPreparation").path("distanceNm").asDouble() == -5,
+                    "passed preparation milestone retains signed distance");
+            for (double gs : List.of(99.9, 100.0)) {
+                call(panelApi, "POST", "/poll", "{\"telemetry\":{\"groundSpeedKnots\":" + gs
+                        + ",\"nextWaypoint\":\"FIXB\",\"distanceToNextWaypointNm\":10}}");
+                var timing = json(call(web, "POST", "/flight-plan/telemetry", timingContext));
+                check(timing.path("topOfDescent").path("distanceNm").asDouble() == 5
+                        && timing.path("topOfDescent").path("secondsRemaining").isNull() == (gs < 100)
+                        && timing.path("startPreparation").path("distanceNm").asDouble() == -5,
+                        "100 KT timing boundary preserves distances and passed milestones: " + gs);
+            }
+            call(panelApi, "POST", "/poll", """
+                    {"telemetry":{"groundSpeedKnots":0,"nextWaypoint":"<FIX>","distanceToNextWaypointNm":0}}
+                    """);
+            check(service.getTelemetry().groundSpeedKnots() == 0 && service.getTelemetry().distanceToNextWaypointNm() == 0,
+                    "zero telemetry readings remain valid");
+            call(panelApi, "POST", "/poll", """
+                    {"telemetry":{"groundSpeedKnots":"fast","nextWaypoint":"","distanceToNextWaypointNm":-1}}
+                    """);
+            check(service.getTelemetry().groundSpeedKnots() == null && service.getTelemetry().nextWaypoint() == null
+                    && service.getTelemetry().distanceToNextWaypointNm() == null, "invalid readings are absent");
             call(panelApi, "POST", "/poll", "{}");
             check(!service.getStatus().diagnostics().has("telemetry"), "missing telemetry does not reuse previous sample");
+            check(json(call(web, "GET", "/flight-plan/telemetry", null)).path("groundSpeedKnots").isNull(),
+                    "web telemetry clears previous readings");
             String connectedLanding = call(web, "GET", "/", null).body();
             check(!Pattern.compile("<button(?=[^>]*id=\"import-flight-plan\")(?=[^>]*disabled)[^>]*>")
                     .matcher(connectedLanding).find(), "simulator import enabled after heartbeat");
@@ -129,6 +184,9 @@ public class MSFSIntegrationCheck {
             var generated = call(web, "POST", "/flight-plan", formBody(page.body()));
             check(generated.statusCode() == 200 && generated.body().contains("class=\"descent-table\""),
                     "simulator import can generate a descent using the existing editor");
+            check(generated.body().contains("id=\"td-countdown\"") && generated.body().contains("id=\"prep-countdown\"")
+                    && generated.body().contains("data-offset=\"") && generated.body().contains("telemetry-readings"),
+                    "generated itinerary renders milestone context and compact live strip");
             var edited = call(web, "POST", "/flight-plan/edit", formBody(generated.body()));
             check(edited.statusCode() == 200 && edited.body().contains("FIXC")
                     && edited.body().contains("class=\"waypoint-table\""), "return preserves imported route");
@@ -305,9 +363,11 @@ public class MSFSIntegrationCheck {
     private static HttpRequest.Builder request(String root, String method, String path, String body) {
 
         boolean panelRequest = path.equals("/poll") || path.startsWith("/flightplan/");
+        String contentType = panelRequest ? "text/plain;charset=UTF-8"
+                : path.equals("/flight-plan/telemetry") ? "application/json" : "application/x-www-form-urlencoded";
 
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(root + path)).timeout(Duration.ofSeconds(10))
-                .header("Content-Type", panelRequest ? "text/plain;charset=UTF-8" : "application/x-www-form-urlencoded")
+                .header("Content-Type", contentType)
                 .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
 
         if (panelRequest) {
