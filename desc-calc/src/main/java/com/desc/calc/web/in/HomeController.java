@@ -1,10 +1,11 @@
-package com.desc.calc.web;
+package com.desc.calc.web.in;
 
 import com.desc.calc.msfs.MSFSService;
 import com.desc.calc.processor.obj.Waypoint;
 import com.desc.calc.processor.service.CSVService;
 import com.desc.calc.web.service.WebDescentService;
 import com.desc.calc.web.service.WebPlanDTO;
+import com.desc.calc.web.service.FlightPlanEditorModel;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -27,12 +28,15 @@ public class HomeController {
     private final CSVService csvService;
     private final WebDescentService webDescentService;
     private final MSFSService msfsService;
+    private final FlightPlanEditorModel editorModel;
 
-    public HomeController(CSVService csvService, WebDescentService webDescentService, MSFSService msfsService) {
+    public HomeController(CSVService csvService, WebDescentService webDescentService, MSFSService msfsService,
+                          FlightPlanEditorModel editorModel) {
 
         this.csvService = csvService;
         this.webDescentService = webDescentService;
         this.msfsService = msfsService;
+        this.editorModel = editorModel;
     }
 
     @GetMapping("/")
@@ -98,7 +102,7 @@ public class HomeController {
             errors.reject("calculation", result.error());
         }
 
-        summarize(form, model);
+        editorModel.populate(form, model);
 
         return "flight-plan";
     }
@@ -110,7 +114,7 @@ public class HomeController {
     public String edit(@ModelAttribute("flightPlan") WebPlanDTO form, BindingResult errors, Model model) {
 
         form.validate(errors);
-        summarize(form, model);
+        editorModel.populate(form, model);
 
         return "flight-plan";
     }
@@ -120,26 +124,9 @@ public class HomeController {
         WebPlanDTO form = WebPlanDTO.from(waypoints);
 
         model.addAttribute("flightPlan", form);
-        summarize(form, model);
+        editorModel.populate(form, model);
 
         return "flight-plan";
     }
 
-    private void summarize(WebPlanDTO form, Model model) {
-
-        List<WebPlanDTO.Row> rows = form.getWaypoints() == null ? List.of() : form.getWaypoints();
-
-        long totalDistance = rows.stream()
-                .filter(row -> row != null && row.getDistanceToNext() != null)
-                .mapToLong(WebPlanDTO.Row::getDistanceToNext)
-                .sum();
-
-        long constrainedWaypoints = rows.stream()
-                .filter(row -> row != null && (row.getAltHold() != null || row.getAltAbove() != null
-                        || row.getAltBelow() != null || row.getSpeed() != null))
-                .count();
-
-        model.addAttribute("totalDistance", totalDistance);
-        model.addAttribute("constrainedWaypoints", constrainedWaypoints);
-    }
 }

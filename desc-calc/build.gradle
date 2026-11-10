@@ -42,3 +42,9 @@ tasks.register('msfsIntegrationTest', JavaExec) {
         args project.property('msfsSnapshot'), project.property('msfsExpectedCsv')
     }
 }
+
+tasks.register('savedPlansIntegrationTest', JavaExec) {
+    dependsOn msfsIntegrationClasses
+    classpath = sourceSets.msfsIntegration.runtimeClasspath
+    mainClass = 'com.desc.calc.web.SavedFlightPlanCheck'
+}

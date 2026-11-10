@@ -31,9 +31,13 @@
                     <h1 id="result-title">Your descent <em>plan.</em></h1>
                     <p class="plan-description">A clear sequence, from top of descent to final approach.</p>
                 </div>
+                <div class="source-label"><span class="status-dot" aria-hidden="true"></span><span th:text="${importSource ?: 'ROUTE INPUT'}">ROUTE INPUT</span><span class="source-file" th:text="${importDetail ?: 'Edited waypoints'}">Imported route</span></div>
             </section>
 
             <form id="edit-plan" method="post" th:action="@{/flight-plan/edit}" th:object="${flightPlan}">
+                <input type="hidden" name="importSource" th:value="${importSource}">
+                <input type="hidden" name="importDetail" th:value="${importDetail}">
+                <input type="hidden" name="planName" th:value="${planName}">
                 <input type="hidden" th:field="*{cruiseAltitude}">
                 <input type="hidden" th:field="*{initialSpeed}">
                 <input type="hidden" th:field="*{tdExtraDistance}">

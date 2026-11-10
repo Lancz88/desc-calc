@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="list" class="saved-plan-list">
+    <p class="saved-empty" th:if="${#lists.isEmpty(savedPlans)}">No saved plans yet.</p>
+    <a class="saved-plan-item" th:each="saved : ${savedPlans}" th:href="@{/flight-plan/saved/{id}(id=${saved.id})}">
+        <span><strong th:text="${saved.name}">Flight plan</strong><small th:text="|${saved.waypointCount} waypoints · ${saved.cruiseAltitude} FT|">Route details</small></span>
+        <span class="saved-plan-date"><time th:datetime="${saved.savedAt}" th:text="${#strings.replace(#strings.substring(saved.savedAt,0,16),'T',' ')}"></time><small>UTC &nbsp; ↗ Load</small></span>
+    </a>
+</div>
+</body>
+</html>

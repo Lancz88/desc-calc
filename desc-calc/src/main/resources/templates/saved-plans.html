@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Saved plans — DESC/CALC</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/images/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/css/home.css(v='20261109-saves1')}">
+</head>
+<body class="plan-page">
+<div class="sky" aria-hidden="true"></div>
+<div class="page-shell">
+    <header class="site-header"><a class="brand" th:href="@{/}">DESC<span class="brand-slash">/</span>CALC</a><a class="back-link" th:href="@{/}">← Home</a></header>
+    <main class="plan-main">
+        <section class="plan-heading"><div><div class="eyebrow">READY WHEN YOU ARE</div><h1>Saved <em>plans.</em></h1><p class="plan-description">Your latest 10 plans, ready to edit and fly.</p></div></section>
+        <section class="plan-workspace saved-library" aria-label="Saved flight plans">
+            <p class="save-feedback" role="status" th:if="${saveError != null}" th:text="${saveError}"></p>
+            <div th:replace="~{fragments/saved-plans :: list}"></div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

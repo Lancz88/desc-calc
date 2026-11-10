@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#101e31">
     <title>Flight plan — DESC/CALC</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261108-layout6" th:href="@{/css/home.css(v='20261108-layout6')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261109-saves4" th:href="@{/css/home.css(v='20261109-saves4')}">
 </head>
 <body class="plan-page">
     <div class="sky" aria-hidden="true"></div>
@@ -34,10 +34,26 @@
             </section>
 
             <form class="plan-workspace" aria-label="Flight plan editor" method="post" th:action="@{/flight-plan}" th:object="${flightPlan}">
+                <input type="hidden" name="importSource" th:value="${importSource}">
+                <input type="hidden" name="importDetail" th:value="${importDetail}">
                 <div class="plan-errors" role="alert" th:if="${#fields.hasAnyErrors()}">
                     <strong>Please check your inputs</strong>
                     <ul><li th:each="error : ${#fields.allErrors()}" th:text="${error}"></li></ul>
                 </div>
+                <div class="plan-storage">
+                    <div class="plan-save-controls">
+                        <label class="visually-hidden" for="plan-save-name">Plan name (optional)</label>
+                        <input id="plan-save-name" type="text" name="planName" maxlength="80" th:value="${planName}" placeholder="Plan name (optional)">
+                        <button class="plan-save-button" type="submit" th:formaction="@{/flight-plan/saved}">Save plan</button>
+                        <span class="save-feedback" role="status" th:if="${saveMessage != null}" th:text="${saveMessage}"></span>
+                    </div>
+                    <p class="save-feedback" role="status" th:if="${saveError != null}" th:text="${saveError}"></p>
+                    <details class="saved-plan-picker">
+                        <summary th:text="|Saved plans (${#lists.size(savedPlans)}/10)|">Saved plans</summary>
+                        <div th:replace="~{fragments/saved-plans :: list}"></div>
+                    </details>
+                </div>
+
                 <div class="plan-summary">
                     <div class="summary-stat"><strong th:text="${#lists.size(flightPlan.waypoints)}">0</strong><span>WAYPOINTS</span></div>
                     <div class="summary-stat"><strong><span th:text="${totalDistance}">0</span><small> NM</small></strong><span>ROUTE DISTANCE</span></div>
@@ -58,7 +74,7 @@
 
                 <div class="table-scroll" role="region" aria-label="Editable waypoint table; scroll horizontally on smaller screens" tabindex="0">
                     <table class="waypoint-table" aria-describedby="table-order editor-notice">
-                        <caption class="visually-hidden">Imported waypoints with editable distances, altitude constraints in feet and maximum speeds in knots. Edits are not saved.</caption>
+                        <caption class="visually-hidden">Imported waypoints with editable distances, altitude constraints in feet and maximum speeds in knots. Select Save plan to keep your edits.</caption>
                         <colgroup><col class="column-index"><col class="column-waypoint"><col><col><col><col><col></colgroup>
                         <thead>
                             <tr class="column-groups"><th colspan="3" scope="colgroup">THE ROUTE</th><th colspan="3" scope="colgroup">ALTITUDE CONSTRAINTS</th><th scope="col">SPEED</th></tr>
@@ -89,7 +105,7 @@
                 <div class="editor-notice" id="editor-notice">
                     <span class="notice-symbol" aria-hidden="true">i</span>
                     <p>Edit the route, then select Generate descent plan above.<br>
-                        Changes are used for this calculation only; the original CSV stays untouched.</p>
+                        Save plan keeps a local copy of your route and settings.</p>
                 </div>
             </form>
             <p class="plan-endnote">A clear plan leaves more room for the view.</p>

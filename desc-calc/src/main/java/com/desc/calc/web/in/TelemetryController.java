@@ -1,4 +1,4 @@
-package com.desc.calc.web;
+package com.desc.calc.web.in;
 
 import com.desc.calc.msfs.MSFSTelemetry;
 import com.desc.calc.web.service.TelemetryService;

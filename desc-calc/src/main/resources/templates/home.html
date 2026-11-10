@@ -7,7 +7,7 @@
     <meta name="description" content="A little more calm between cruise and touchdown. Plan a smoother descent with DESC/CALC.">
     <title>DESC/CALC — A smoother way down</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261108-layout6" th:href="@{/css/home.css(v='20261108-layout6')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261109-saves1" th:href="@{/css/home.css(v='20261109-saves1')}">
 </head>
 <body>
     <div class="sky" aria-hidden="true"></div>
@@ -43,6 +43,7 @@
                    th:attr="data-state=${panelConnected ? 'connected' : 'disconnected'}"
                    th:text="${panelConnected ? 'Panel connected. Once your route is ready in the MCDU, import your flight plan.' : 'Open the GlideLink in-game panel in MSFS to connect.'}">Checking panel connection…</p>
                 <a class="sample-import" href="/flight-plan/csv" th:href="@{/flight-plan/csv}">Use sample CSV <span aria-hidden="true">&#8594;</span></a>
+                <a class="sample-import saved-plans-link" th:href="@{/flight-plan/saved}">Saved flight plans <span aria-hidden="true">&#8594;</span></a>
                 <noscript><p class="button-caption">Reload this page after connecting the MSFS panel.</p></noscript>
             </section>
 

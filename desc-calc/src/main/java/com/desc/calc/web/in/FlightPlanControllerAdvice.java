@@ -1,4 +1,4 @@
-package com.desc.calc.web;
+package com.desc.calc.web.in;
 
 import com.desc.calc.msfs.MSFSException;
 import com.desc.calc.msfs.MSFSService;
@@ -16,7 +16,7 @@ import java.util.Map;
  * Keeps form-binding rules and import error presentation outside the page controller.
  * Spring invokes these hooks automatically for the selected controllers.
  */
-@ControllerAdvice(assignableTypes = HomeController.class)
+@ControllerAdvice(assignableTypes = {HomeController.class, SavedFlightPlanController.class})
 public class FlightPlanControllerAdvice {
 
     private final MSFSService msfsService;

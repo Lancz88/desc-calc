@@ -42,4 +42,5 @@ bin/
 .DS_Store
 
 ### Custom ###
+/data/
 !**/src/main/resources/env-var.txt

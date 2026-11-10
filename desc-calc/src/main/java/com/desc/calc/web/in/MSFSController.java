@@ -1,4 +1,4 @@
-package com.desc.calc.web;
+package com.desc.calc.web.in;
 
 import com.desc.calc.msfs.MSFSAdapter;
 import com.desc.calc.msfs.MSFSException;
