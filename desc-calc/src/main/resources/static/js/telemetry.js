@@ -99,6 +99,19 @@
         label.textContent = `${remaining} NM away \u00b7 in ${elapsed} \u00b7 ETA ${eta} local`;
     }
 
+    function nextItineraryRow(nextWaypoint) {
+        if (typeof nextWaypoint !== "string" || !nextWaypoint.trim()) return null;
+        const next = route.findIndex(point => point.name === nextWaypoint);
+        if (next < 0 || route.some((point, index) => index !== next && point.name === nextWaypoint)) return null;
+
+        // The editor route is destination-first: lower indices are ahead in flight order.
+        for (let index = next; index >= 0; index--) {
+            const rows = Array.from(itineraryRows).filter(row => row.dataset.waypoint === route[index].name);
+            if (rows.length) return rows.length === 1 ? rows[0] : null;
+        }
+        return null;
+    }
+
     function render(data, unavailable) {
         const readings = data && data.telemetry;
         const active = readings && readings.panelConnected === true;
@@ -111,9 +124,9 @@
         waypoint.textContent = active && typeof readings.nextWaypoint === "string" && readings.nextWaypoint.trim()
             ? readings.nextWaypoint : empty;
         distance.textContent = active ? formatDistance(readings.distanceToNextWaypointNm) : empty;
+        const highlightedRow = active ? nextItineraryRow(readings.nextWaypoint) : null;
         itineraryRows.forEach(row => {
-            const current = !!(active && typeof readings.nextWaypoint === "string"
-                && readings.nextWaypoint.trim() && row.dataset.waypoint === readings.nextWaypoint);
+            const current = row === highlightedRow;
             row.classList.toggle("current-waypoint", current);
             if (current) row.setAttribute("aria-current", "step");
             else row.removeAttribute("aria-current");
