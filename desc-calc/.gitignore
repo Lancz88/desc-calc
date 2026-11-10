@@ -43,4 +43,5 @@ bin/
 
 ### Custom ###
 /data/
+/.glidepath/
 !**/src/main/resources/env-var.txt
