@@ -25,7 +25,7 @@
 
     function milestone(id) {
         const element = document.getElementById(id);
-        return { waypoint: element.dataset.waypoint, offsetNm: Number(element.dataset.offset) };
+        return element ? { waypoint: element.dataset.waypoint, offsetNm: Number(element.dataset.offset) } : null;
     }
 
     // Hidden inputs retain the exact destination-first editor route used for this calculation.
@@ -35,8 +35,24 @@
         route.push({ name: fields.get(`waypoints[${index}].name`).trim(),
             distanceToNext: Number(fields.get(`waypoints[${index}].distanceToNext`)) });
     }
+    const preparation = milestone("prep-milestone");
     const context = JSON.stringify({ route, topOfDescent: milestone("td-milestone"),
-        startPreparation: milestone("prep-milestone") });
+        startPreparation: preparation });
+
+    function preparationIsOnRoute() {
+        if (!preparation || !Number.isFinite(preparation.offsetNm) || preparation.offsetNm < 0) return false;
+        const matches = route.filter(point => point.name === preparation.waypoint);
+        if (matches.length !== 1) return false;
+
+        let total = 0, referenceDistance = 0;
+        for (const point of route) {
+            if (!Number.isFinite(point.distanceToNext) || point.distanceToNext < 0) return false;
+            total += point.distanceToNext;
+            if (point.name === preparation.waypoint) referenceDistance = total;
+        }
+        return referenceDistance + preparation.offsetNm <= total;
+    }
+    const preparationOnRoute = preparationIsOnRoute();
 
     function validNumber(value) {
         return typeof value === "number" && Number.isFinite(value) && value >= 0;
@@ -124,7 +140,11 @@
         waypoint.textContent = active && typeof readings.nextWaypoint === "string" && readings.nextWaypoint.trim()
             ? readings.nextWaypoint : empty;
         distance.textContent = active ? formatDistance(readings.distanceToNextWaypointNm) : empty;
-        const highlightedRow = active ? nextItineraryRow(readings.nextWaypoint) : null;
+        // Re-evaluate the current plan on every sample, including first load after PREP.
+        const prep = data && data.startPreparation;
+        const reachedPreparation = preparationOnRoute && prep
+            && Number.isFinite(prep.distanceNm) && prep.distanceNm <= 0;
+        const highlightedRow = active && reachedPreparation ? nextItineraryRow(readings.nextWaypoint) : null;
         itineraryRows.forEach(row => {
             const current = row === highlightedRow;
             row.classList.toggle("current-waypoint", current);

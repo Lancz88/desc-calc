@@ -7,7 +7,7 @@
     <title>GlidePath: Itinerary</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
     <link rel="stylesheet" href="/css/home.css?v=20261110-glidepath" th:href="@{/css/home.css(v='20261110-glidepath')}">
-    <script defer src="/js/telemetry.js?v=20261110-next-action" th:src="@{/js/telemetry.js(v='20261110-next-action')}"></script>
+    <script defer src="/js/telemetry.js?v=20261111-prep-runway" th:src="@{/js/telemetry.js(v='20261111-prep-runway')}"></script>
 </head>
 <body class="plan-page">
     <div class="sky" aria-hidden="true"></div>
@@ -113,13 +113,13 @@
                 </section>
                 <div class="result-table-scroll" role="region" aria-label="Descent instructions" tabindex="0">
                     <table class="descent-table">
-                        <caption class="visually-hidden">Ordered descent instructions. Distances are nautical miles to the next route waypoint, altitudes are feet and speeds are knots.</caption>
-                        <thead><tr><th scope="col">Step</th><th scope="col">Waypoint</th><th scope="col">To next waypoint <span>NM</span></th><th scope="col">Actions</th></tr></thead>
+                        <caption class="visually-hidden">Ordered descent instructions. Distances are nautical miles along the planned route to the runway, altitudes are feet and speeds are knots.</caption>
+                        <thead><tr><th scope="col">Step</th><th scope="col">Waypoint</th><th scope="col">To runway <span>NM</span></th><th scope="col">Actions</th></tr></thead>
                         <tbody>
                             <tr th:each="step, row : ${plan.waypointActionsGroups}" th:attr="data-waypoint=${step.waypoint}">
                                 <td class="step-number" th:text="${row.count}"></td>
                                 <th scope="row" th:text="${step.waypoint}"></th>
-                                <td class="step-distance" th:text="${step.distanceToNext}"></td>
+                                <td class="step-distance" th:text="${step.distanceToRunway}"></td>
                                 <td class="step-instruction">
                                     <ul class="waypoint-actions">
                                         <li th:each="instruction : ${step.instructions}" th:text="${instruction}"></li>

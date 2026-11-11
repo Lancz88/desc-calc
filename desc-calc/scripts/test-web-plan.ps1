@@ -37,7 +37,7 @@ Assert-Contains $response.Content 'class="itinerary"'
 Assert-Contains $response.Content 'WEBTEST ('
 Assert-Contains $response.Content 'HOLD 5100'
 Assert-Contains $response.Content 'class="descent-table"'
-Assert-Contains $response.Content 'To next waypoint'
+Assert-Contains $response.Content 'To runway'
 if ($response.Content -notmatch '(?s)<th scope="row">WEBTEST</th>\s*<td class="step-distance">9</td>') {
     throw 'Result distance must use the edited outbound leg length, not destination distance'
 }

@@ -43,7 +43,7 @@ public record DescentPlan(String itinerary, ReferencePoint topOfDescent, List<St
                     && steps.get(index).waypoint().equals(first.waypoint())
                     && steps.get(index).distance() == first.distance());
 
-            groups.add(new WaypointActionsGroup(first.waypoint(), first.distanceToNext(), instructions));
+            groups.add(new WaypointActionsGroup(first.waypoint(), first.distance(), instructions));
         }
 
         return List.copyOf(groups);
@@ -52,7 +52,7 @@ public record DescentPlan(String itinerary, ReferencePoint topOfDescent, List<St
     /**
      * The ordered actions to perform at one waypoint occurrence in the route.
      */
-    public record WaypointActionsGroup(String waypoint, int distanceToNext, List<String> instructions) {
+    public record WaypointActionsGroup(String waypoint, int distanceToRunway, List<String> instructions) {
 
         public WaypointActionsGroup {
             instructions = List.copyOf(instructions);

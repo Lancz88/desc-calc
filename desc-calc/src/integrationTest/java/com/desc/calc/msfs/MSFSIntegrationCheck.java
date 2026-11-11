@@ -193,6 +193,16 @@ public class MSFSIntegrationCheck {
             var generated = call(web, "POST", "/flight-plan", formBody(page.body()));
             check(generated.statusCode() == 200 && generated.body().contains("class=\"descent-table\""),
                     "simulator import can generate a descent using the existing editor");
+            check(generated.body().contains("To runway <span>NM</span>")
+                    && !generated.body().contains("To next waypoint"), "itinerary labels along-route runway distances");
+            var expectedPlan = context.getBean(WebDescentService.class)
+                    .generate(WebPlanDTO.from(new FlightPlanMapper().toWaypoints(snapshot))).plan();
+            for (var group : expectedPlan.getWaypointActionsGroups()) {
+                var row = Pattern.compile("<tr[^>]*data-waypoint=\"" + Pattern.quote(group.waypoint())
+                        + "\"[^>]*>(.*?)</tr>", Pattern.DOTALL).matcher(generated.body());
+                check(row.find() && row.group(1).contains("class=\"step-distance\">" + group.distanceToRunway() + "</td>"),
+                        "rendered waypoint carries cumulative runway distance: " + group.waypoint());
+            }
             check(generated.body().contains("id=\"td-countdown\"") && generated.body().contains("id=\"prep-countdown\"")
                     && generated.body().contains("data-offset=\"") && generated.body().contains("telemetry-readings"),
                     "generated itinerary renders milestone context and compact live strip");
@@ -242,6 +252,14 @@ public class MSFSIntegrationCheck {
     private static void checkMapper(JsonNode snapshot) {
 
         FlightPlanMapper mapper = new FlightPlanMapper();
+        var displayPlan = new com.desc.calc.processor.obj.DescentPlan("", null, List.of(
+                new com.desc.calc.processor.obj.DescentPlan.Step("BEFORE", 25, 15, "Descend"),
+                new com.desc.calc.processor.obj.DescentPlan.Step("BEFORE", 25, 15, "Slow"),
+                new com.desc.calc.processor.obj.DescentPlan.Step("VENUB", 10, 10, "Approach")));
+        var groups = displayPlan.getWaypointActionsGroups();
+        check(groups.size() == 2 && groups.get(0).distanceToRunway() == 25
+                && groups.get(0).instructions().size() == 2 && groups.get(1).distanceToRunway() == 10,
+                "runway column uses cumulative distance, preserves final leg and grouped actions");
         rejects(() -> mapper.toWaypoints(JSON.createObjectNode()), "missing snapshot fields rejected cleanly");
         List<Waypoint> points = mapper.toWaypoints(snapshot);
         check(points.size() == 3 && points.get(0).getName().equals("FIXC"), "destination-first route");
