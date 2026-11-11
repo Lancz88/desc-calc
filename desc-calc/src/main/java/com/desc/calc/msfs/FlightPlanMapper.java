@@ -11,15 +11,21 @@ import java.util.Set;
 /**
  * Converts FBW snapshots to destination-first calculator input without using predictions
  * as constraints. Geometry is in NM; each waypoint uses the NEXT leg's inbound distance.
- * Unsupported route constructs fail explicitly rather than silently losing constraints.
+ * Departure constraints are intentionally omitted; later route constraints are preserved.
  */
 @Component
 public class FlightPlanMapper {
 
-    private static final List<String> ROUTE_SEGMENTS = List.of("enrouteSegment",
+    private static final Set<String> DEPARTURE_SEGMENTS = Set.of("departureRunwayTransitionSegment",
+            "departureSegment", "departureEnrouteTransitionSegment");
+    // Flight order; origin, missed approach and alternate legs are not calculator input.
+    private static final List<String> ROUTE_SEGMENTS = List.of("departureRunwayTransitionSegment",
+            "departureSegment", "departureEnrouteTransitionSegment", "enrouteSegment",
             "arrivalEnrouteTransitionSegment", "arrivalSegment", "arrivalRunwayTransitionSegment",
             "approachViaSegment", "approachSegment", "destinationSegment");
     private static final Set<String> FIX_LEG_TYPES = Set.of("AF", "CF", "DF", "IF", "RF", "TF");
+    // Altitude-terminated departure points use the snapshot's calculated geometry as a planning approximation.
+    private static final Set<String> DEPARTURE_ALTITUDE_LEG_TYPES = Set.of("CA", "FA", "VA");
 
     public List<Waypoint> toWaypoints(JsonNode snapshot) {
 
@@ -35,39 +41,47 @@ public class FlightPlanMapper {
             throw invalid("Load an active route with a destination runway before importing.");
         }
 
-        List<JsonNode> legs = collectLegs(segments, runway);
-        int count = legs.size() - 1;
+        List<ImportedLeg> legs = collectLegs(segments, runway);
+        int waypointCount = legs.size() - 1; // The final runway supplies geometry, not an editor row.
 
-        if (count < 2 || count > 200 || !legs.get(legs.size() - 1).path("ident").asText().equals(runway)) {
+        if (waypointCount < 2 || waypointCount > 200
+                || !legs.get(legs.size() - 1).data().path("ident").asText().equals(runway)) {
             throw invalid("The route must contain 2-200 fixes followed by the destination runway.");
         }
 
         List<Waypoint> waypoints = new ArrayList<>();
 
-        for (int index = count - 1; index >= 0; index--) {
-            JsonNode leg = legs.get(index);
-            String name = leg.path("ident").asText();
-            int distance = number(legs.get(index + 1).path("calculated"), "distanceWithTransitions", 0, 10000);
-
-            if (distance < 1) {
-                throw invalid("A leg near " + name + " rounds to zero NM; the calculator needs positive whole-mile legs.");
-            }
-
-            JsonNode altitude = constraint(leg, "pilotEnteredAltitudeConstraint");
-            Altitude bounds = altitude(altitude);
-            Integer speed = speed(constraint(leg, "pilotEnteredSpeedConstraint"));
-            waypoints.add(new Waypoint(waypoints.size() + 1, name, distance,
-                    bounds.hold(), bounds.above(), bounds.below(), speed));
+        // The calculator numbers waypoints backwards, starting nearest the destination.
+        for (int index = waypointCount - 1; index >= 0; index--) {
+            waypoints.add(toWaypoint(legs.get(index), legs.get(index + 1), waypoints.size() + 1));
         }
 
         return waypoints;
     }
 
-    private List<JsonNode> collectLegs(JsonNode segments, String runway) {
+    private Waypoint toWaypoint(ImportedLeg imported, ImportedLeg nextLeg, int index) {
 
-        List<JsonNode> legs = new ArrayList<>();
+        JsonNode leg = imported.data();
+        // FBW distances are inbound; the calculator stores the distance OUT of this waypoint.
+        int distanceToNext = Math.max(1, roundedNumber(nextLeg.data().path("calculated"),
+                "distanceWithTransitions", 0, 10000));
+
+        // Departure extends route tracking without applying climb constraints to descent planning.
+        Altitude bounds = imported.departure() ? new Altitude(null, null, null)
+                : readAltitude(effectiveConstraint(leg, "pilotEnteredAltitudeConstraint"));
+        Integer speed = imported.departure() ? null
+                : readMaximumSpeed(effectiveConstraint(leg, "pilotEnteredSpeedConstraint"));
+
+        return new Waypoint(index, leg.path("ident").asText(), distanceToNext,
+                bounds.hold(), bounds.above(), bounds.below(), speed);
+    }
+
+    private List<ImportedLeg> collectLegs(JsonNode segments, String runway) {
+
+        List<ImportedLeg> legs = new ArrayList<>();
 
         for (String segmentName : ROUTE_SEGMENTS) {
+            boolean departure = DEPARTURE_SEGMENTS.contains(segmentName);
             JsonNode segment = segments.get(segmentName);
 
             if (segment == null || segment.isNull()) {
@@ -81,17 +95,10 @@ public class FlightPlanMapper {
             }
 
             for (JsonNode leg : entries) {
-                String name = leg.path("ident").asText("");
-                String type = leg.path("effectiveType").asText(leg.path("definition").path("type").asText());
+                validateLeg(leg, segmentName, departure);
+                legs.add(new ImportedLeg(leg, departure));
 
-                if (!leg.isObject() || leg.path("isDiscontinuity").asBoolean() || name.isBlank()
-                        || name.length() > 32 || !FIX_LEG_TYPES.contains(type)) {
-                    throw invalid("Discontinuity, hold, vector or unsupported leg in " + segmentName + ". Resolve it before import.");
-                }
-
-                legs.add(leg);
-
-                if (name.equals(runway)) {
+                if (leg.path("ident").asText().equals(runway)) {
                     return legs;
                 }
             }
@@ -100,28 +107,42 @@ public class FlightPlanMapper {
         return legs;
     }
 
-    private JsonNode constraint(JsonNode leg, String pilotField) {
+    private void validateLeg(JsonNode leg, String segmentName, boolean departure) {
+
+        String name = leg.path("ident").asText("");
+        String type = leg.path("effectiveType").asText(leg.path("definition").path("type").asText());
+        boolean supportedType = FIX_LEG_TYPES.contains(type)
+                || (departure && DEPARTURE_ALTITUDE_LEG_TYPES.contains(type));
+
+        if (!leg.isObject() || leg.path("isDiscontinuity").asBoolean() || name.isBlank()
+                || name.length() > 32 || !supportedType) {
+            throw invalid("Discontinuity, hold, vector or unsupported leg in " + segmentName + ". Resolve it before import.");
+        }
+    }
+
+    /** Pilot-entered constraints replace the corresponding database constraint when present. */
+    private JsonNode effectiveConstraint(JsonNode leg, String pilotField) {
 
         return leg.hasNonNull(pilotField) ? leg.get(pilotField) : leg.path("definition");
     }
 
-    private Altitude altitude(JsonNode source) {
+    private Altitude readAltitude(JsonNode source) {
 
         String descriptor = source.path("altitudeDescriptor").asText("");
 
         return switch (descriptor) {
             case "", "0" -> new Altitude(null, null, null);
-            case "@", "G", "I", "X" -> new Altitude(number(source, "altitude1", 0, 60000), null, null);
-            case "+", "H", "J", "V" -> new Altitude(null, number(source, "altitude1", 0, 60000), null);
-            case "-", "Y" -> new Altitude(null, null, number(source, "altitude1", 0, 60000));
-            case "C" -> new Altitude(null, number(source, "altitude2", 0, 60000), null);
-            case "B" -> new Altitude(null, number(source, "altitude2", 0, 60000),
-                    number(source, "altitude1", 0, 60000));
+            case "@", "G", "I", "X" -> new Altitude(roundedNumber(source, "altitude1", 0, 60000), null, null);
+            case "+", "H", "J", "V" -> new Altitude(null, roundedNumber(source, "altitude1", 0, 60000), null);
+            case "-", "Y" -> new Altitude(null, null, roundedNumber(source, "altitude1", 0, 60000));
+            case "C" -> new Altitude(null, roundedNumber(source, "altitude2", 0, 60000), null);
+            case "B" -> new Altitude(null, roundedNumber(source, "altitude2", 0, 60000),
+                    roundedNumber(source, "altitude1", 0, 60000));
             default -> throw invalid("Unsupported altitude constraint descriptor: " + descriptor);
         };
     }
 
-    private Integer speed(JsonNode source) {
+    private Integer readMaximumSpeed(JsonNode source) {
 
         String descriptor = source.path("speedDescriptor").asText("");
 
@@ -133,10 +154,11 @@ public class FlightPlanMapper {
             throw invalid("Only maximum-speed constraints can currently be represented by the calculator.");
         }
 
-        return number(source, "speed", 100, 600);
+        return roundedNumber(source, "speed", 100, 600);
     }
 
-    private int number(JsonNode source, String field, int min, int max) {
+    /** Validate the raw value before rounding; missing or invalid values never become defaults. */
+    private int roundedNumber(JsonNode source, String field, int min, int max) {
 
         JsonNode value = source.path(field);
         double number = value.asDouble(Double.NaN);
@@ -153,5 +175,8 @@ public class FlightPlanMapper {
     }
 
     private record Altitude(Integer hold, Integer above, Integer below) {
+    }
+
+    private record ImportedLeg(JsonNode data, boolean departure) {
     }
 }

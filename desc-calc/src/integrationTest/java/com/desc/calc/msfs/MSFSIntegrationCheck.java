@@ -2,6 +2,9 @@ package com.desc.calc.msfs;
 
 import com.desc.calc.SpringApp;
 import com.desc.calc.processor.obj.Waypoint;
+import com.desc.calc.web.service.WebDescentService;
+import com.desc.calc.web.service.WebPlanDTO;
+import org.springframework.validation.BeanPropertyBindingResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -34,6 +37,7 @@ public class MSFSIntegrationCheck {
 
         JsonNode snapshot = snapshot();
         checkMapper(snapshot);
+        checkDepartureMapper(snapshot);
 
         if (args.length == 2) {
             checkRecordedSnapshot(Path.of(args[0]), Path.of(args[1]));
@@ -44,6 +48,7 @@ public class MSFSIntegrationCheck {
             String web = "http://127.0.0.1:" + context.getWebServer().getPort();
             String panelApi = web + "/msfs";
             MSFSService service = context.getBean(MSFSService.class);
+            checkDepartureCalculation(context, snapshot);
 
             check(!service.getStatus().panelConnected(), "initial disconnected");
             String landing = call(web, "GET", "/", null).body();
@@ -134,15 +139,16 @@ public class MSFSIntegrationCheck {
                     "waypoint transition updates distance and zero GS suppresses ETA");
             check(stopped.path("startPreparation").path("distanceNm").asDouble() == -5,
                     "passed preparation milestone retains signed distance");
-            for (double gs : List.of(99.9, 100.0)) {
+            for (double gs : List.of(249.9, 250.0)) {
                 call(panelApi, "POST", "/poll", "{\"telemetry\":{\"groundSpeedKnots\":" + gs
                         + ",\"nextWaypoint\":\"FIXB\",\"distanceToNextWaypointNm\":10}}");
                 var timing = json(call(web, "POST", "/flight-plan/telemetry", timingContext));
                 check(timing.path("topOfDescent").path("distanceNm").asDouble() == 5
-                        && timing.path("topOfDescent").path("secondsRemaining").isNull() == (gs < 100)
+                        && timing.path("topOfDescent").path("secondsRemaining").isNull() == (gs < 250)
                         && timing.path("startPreparation").path("distanceNm").asDouble() == -5,
-                        "100 KT timing boundary preserves distances and passed milestones: " + gs);
+                        "250 KT timing boundary preserves distances and passed milestones: " + gs);
             }
+            checkDepartureTiming(web, panelApi, snapshot);
             call(panelApi, "POST", "/poll", """
                     {"telemetry":{"groundSpeedKnots":0,"nextWaypoint":"<FIX>","distanceToNextWaypointNm":0}}
                     """);
@@ -246,6 +252,136 @@ public class MSFSIntegrationCheck {
         ObjectNode speed = snapshot.deepCopy();
         ((ObjectNode) speed.at("/activePlan/segments/enrouteSegment/allLegs/1/pilotEnteredSpeedConstraint")).put("speedDescriptor", "+");
         rejects(() -> mapper.toWaypoints(speed), "minimum speed not silently treated as maximum");
+    }
+
+    private static ObjectNode withDeparture(JsonNode snapshot) {
+        ObjectNode extended = snapshot.deepCopy();
+        ObjectNode segments = (ObjectNode) extended.at("/activePlan/segments");
+        // Intentionally insert segments out of flight order; the mapper must use FBW's route order.
+        segments.putObject("departureEnrouteTransitionSegment").putArray("allLegs")
+                .add(departureLeg("DEP2", "TF", 10.6));
+        segments.putObject("departureSegment").putArray("allLegs")
+                .add(departureLeg("DEP1", "TF", .2));
+        segments.putObject("departureRunwayTransitionSegment").putArray("legs")
+                .add(departureLeg("520", "CA", 0));
+        segments.putObject("originSegment").putArray("allLegs").addObject().put("ident", "ORIGIN-RUNWAY");
+        ((ObjectNode) extended.at("/activePlan/segments/enrouteSegment/allLegs/0/calculated"))
+                .put("distanceWithTransitions", 180.2);
+        return extended;
+    }
+
+    private static ObjectNode departureLeg(String name, String type, double distance) {
+        ObjectNode leg = JSON.createObjectNode().put("ident", name).put("effectiveType", type);
+        leg.putObject("definition").put("altitudeDescriptor", "@").put("altitude1", 520)
+                .put("speedDescriptor", "-").put("speed", 180);
+        leg.putObject("pilotEnteredAltitudeConstraint").put("altitudeDescriptor", "+").put("altitude1", 700);
+        leg.putObject("pilotEnteredSpeedConstraint").put("speedDescriptor", "+").put("speed", 190);
+        leg.putObject("calculated").put("distanceWithTransitions", distance);
+        return leg;
+    }
+
+    private static void checkDepartureMapper(JsonNode snapshot) {
+        var mapper = new FlightPlanMapper();
+        var extended = withDeparture(snapshot);
+        var points = mapper.toWaypoints(extended);
+        check(points.stream().map(Waypoint::getName).toList().equals(List.of("FIXC", "FIXB", "FIXA", "DEP2", "DEP1", "520")),
+                "all departure segments precede enroute in flight order, with origin and missed approach excluded");
+        check(points.get(3).getDistanceToNext() == 180 && points.get(4).getDistanceToNext() == 11
+                && points.get(5).getDistanceToNext() == 1, "departure uses next leg's geometry, rounded with one-NM minimum");
+        for (int index = 3; index < points.size(); index++) {
+            var point = points.get(index);
+            check(point.getIdx() == index + 1 && point.getAltHold() == null && point.getAltAbove() == null
+                    && point.getAltBelow() == null && point.getSpeed() == null,
+                    "departure database and pilot altitude/speed constraints omitted: " + point.getName());
+        }
+        check(points.get(1).getAltHold() == 5000 && points.get(1).getSpeed() == 210
+                && points.get(0).getAltAbove() == 4000, "departure import preserves enroute and arrival constraints");
+        var form = WebPlanDTO.from(points);
+        var errors = new BeanPropertyBindingResult(form, "flightPlan");
+        form.validate(errors);
+        check(!errors.hasErrors(), "departure climb restrictions do not invalidate descent form");
+        for (String type : List.of("CA", "FA", "VA")) {
+            var altitudeLeg = extended.deepCopy();
+            ((ObjectNode) altitudeLeg.at("/activePlan/segments/departureRunwayTransitionSegment/legs/0")).put("effectiveType", type);
+            check(mapper.toWaypoints(altitudeLeg).get(5).getName().equals("520"), "named altitude-terminated departure accepted: " + type);
+        }
+        for (String type : List.of("VM", "FM", "HM", "UNKNOWN")) {
+            var unsupported = extended.deepCopy();
+            ((ObjectNode) unsupported.at("/activePlan/segments/departureRunwayTransitionSegment/legs/0")).put("effectiveType", type);
+            rejects(() -> mapper.toWaypoints(unsupported), "manual/hold/unknown departure still rejected: " + type);
+        }
+        var discontinuity = extended.deepCopy();
+        ((ObjectNode) discontinuity.at("/activePlan/segments/departureSegment/allLegs/0")).put("isDiscontinuity", true);
+        rejects(() -> mapper.toWaypoints(discontinuity), "departure discontinuity still rejected");
+        var specialArrival = snapshot.deepCopy();
+        ((ObjectNode) specialArrival.at("/activePlan/segments/approachSegment/allLegs/0")).put("effectiveType", "CA");
+        rejects(() -> mapper.toWaypoints(specialArrival), "altitude-leg approximation is restricted to departure");
+
+        for (String path : List.of("/activePlan/segments/enrouteSegment/allLegs/1/calculated",
+                "/activePlan/segments/approachSegment/allLegs/1/calculated")) {
+            for (double distance : List.of(0.0, .2, .499, .5, 1.49, 1.5)) {
+                var shortLeg = snapshot.deepCopy();
+                ((ObjectNode) shortLeg.at(path)).put("distanceWithTransitions", distance);
+                var mapped = mapper.toWaypoints(shortLeg);
+                int index = path.contains("enrouteSegment") ? 2 : 0;
+                check(mapped.get(index).getDistanceToNext() == Math.max(1, Math.round(distance)),
+                        "valid short geometry retains waypoint/constraints with minimum one NM: " + distance);
+            }
+            for (double invalid : List.of(-.01, Double.NaN, Double.POSITIVE_INFINITY, 10000.1)) {
+                var broken = snapshot.deepCopy();
+                ((ObjectNode) broken.at(path)).put("distanceWithTransitions", invalid);
+                rejects(() -> mapper.toWaypoints(broken), "minimum does not replace invalid geometry: " + invalid);
+            }
+        }
+        var missing = extended.deepCopy();
+        ((ObjectNode) missing.at("/activePlan/segments/departureSegment/allLegs/0/calculated")).remove("distanceWithTransitions");
+        rejects(() -> mapper.toWaypoints(missing), "missing departure geometry remains an error");
+        check(extended.equals(withDeparture(snapshot)), "mapping does not modify raw snapshot");
+    }
+
+    private static void checkDepartureCalculation(ServletWebServerApplicationContext context, JsonNode snapshot) {
+        var mapper = new FlightPlanMapper();
+        var descent = context.getBean(WebDescentService.class);
+        var baseline = WebPlanDTO.from(mapper.toWaypoints(snapshot));
+        var extended = WebPlanDTO.from(mapper.toWaypoints(withDeparture(snapshot)));
+        baseline.setCruiseAltitude(9000);
+        extended.setCruiseAltitude(9000);
+        var original = descent.generate(baseline);
+        var result = descent.generate(extended);
+        check(original.error() == null && result.error() == null, "real descent processor accepts departure extension");
+        check(result.plan().steps().stream().filter(step -> step.waypoint().startsWith("FIX")).toList()
+                .equals(original.plan().steps()), "existing downstream descent instructions unchanged by unconstrained departure");
+    }
+
+    private static void checkDepartureTiming(String web, String panelApi, JsonNode snapshot) throws Exception {
+        var mapper = new FlightPlanMapper();
+        ObjectNode timing = JSON.createObjectNode();
+        var route = timing.putArray("route");
+        for (var point : mapper.toWaypoints(withDeparture(snapshot))) {
+            route.addObject().put("name", point.getName()).put("distanceToNext", point.getDistanceToNext());
+        }
+        timing.putObject("topOfDescent").put("waypoint", "FIXB").put("offsetNm", 5);
+        timing.putObject("startPreparation").put("waypoint", "FIXB").put("offsetNm", 15);
+        call(panelApi, "POST", "/poll", """
+                {"telemetry":{"groundSpeedKnots":300,"nextWaypoint":"520","distanceToNextWaypointNm":2}}
+                """);
+        var early = json(call(web, "POST", "/flight-plan/telemetry", timing.toString()));
+        check(early.path("topOfDescent").path("distanceNm").asDouble() == 201
+                && early.path("startPreparation").path("distanceNm").asDouble() == 191
+                && early.path("topOfDescent").path("secondsRemaining").asLong() == 2412,
+                "departure next waypoint produces PREP and TD distance/time before enroute");
+        call(panelApi, "POST", "/poll", """
+                {"telemetry":{"groundSpeedKnots":300,"nextWaypoint":"FIXA","distanceToNextWaypointNm":10}}
+                """);
+        var full = json(call(web, "POST", "/flight-plan/telemetry", timing.toString()));
+        route.removeAll();
+        for (var point : mapper.toWaypoints(snapshot)) {
+            route.addObject().put("name", point.getName()).put("distanceToNext", point.getDistanceToNext());
+        }
+        var original = json(call(web, "POST", "/flight-plan/telemetry", timing.toString()));
+        check(full.path("topOfDescent").equals(original.path("topOfDescent"))
+                && full.path("startPreparation").equals(original.path("startPreparation")),
+                "departure extension does not change countdown after entering same enroute point");
     }
 
     private static void checkShutdown(MSFSAdapter adapter) throws Exception {

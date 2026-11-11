@@ -9,7 +9,7 @@ import java.util.List;
 @Service
 public class TelemetryService {
 
-    private static final double MIN_TIMING_GROUND_SPEED_KNOTS = 100;
+    private static final double MIN_TIMING_GROUND_SPEED_KNOTS = 250;
 
     private final MSFSService msfsService;
 
@@ -107,7 +107,7 @@ public class TelemetryService {
     public record PlanContext(List<RoutePoint> route, Milestone topOfDescent, Milestone startPreparation) {
     }
 
-    /** Negative distance means the milestone has been passed; time is absent below 100 KT GS. */
+    /** Negative distance means the milestone has been passed; time is absent below 250 KT GS. */
     public record Countdown(double distanceNm, Long secondsRemaining) {
     }
 
