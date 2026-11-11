@@ -1,7 +1,7 @@
 package com.desc.calc.msfs;
 
 import com.desc.calc.processor.obj.Waypoint;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -29,13 +29,13 @@ public class FlightPlanMapper {
 
     public List<Waypoint> toWaypoints(JsonNode snapshot) {
 
-        if (!snapshot.path("ok").asBoolean() || snapshot.path("schemaVersion").asInt() != 1) {
+        if (!snapshot.path("ok").asBoolean(false) || snapshot.path("schemaVersion").asInt(0) != 1) {
             throw invalid("Unsupported or unsuccessful FBW snapshot.");
         }
 
         JsonNode plan = snapshot.path("activePlan");
         JsonNode segments = plan.path("segments");
-        String runway = plan.path("destinationRunway").asText("");
+        String runway = plan.path("destinationRunway").asString("");
 
         if (!segments.isObject() || runway.isBlank()) {
             throw invalid("Load an active route with a destination runway before importing.");
@@ -45,7 +45,7 @@ public class FlightPlanMapper {
         int waypointCount = legs.size() - 1; // The final runway supplies geometry, not an editor row.
 
         if (waypointCount < 2 || waypointCount > 200
-                || !legs.get(legs.size() - 1).data().path("ident").asText().equals(runway)) {
+                || !legs.get(legs.size() - 1).data().path("ident").asString("").equals(runway)) {
             throw invalid("The route must contain 2-200 fixes followed by the destination runway.");
         }
 
@@ -72,7 +72,7 @@ public class FlightPlanMapper {
         Integer speed = imported.departure() ? null
                 : readMaximumSpeed(effectiveConstraint(leg, "pilotEnteredSpeedConstraint"));
 
-        return new Waypoint(index, leg.path("ident").asText(), distanceToNext,
+        return new Waypoint(index, leg.path("ident").asString(""), distanceToNext,
                 bounds.hold(), bounds.above(), bounds.below(), speed);
     }
 
@@ -98,7 +98,7 @@ public class FlightPlanMapper {
                 validateLeg(leg, segmentName, departure);
                 legs.add(new ImportedLeg(leg, departure));
 
-                if (leg.path("ident").asText().equals(runway)) {
+                if (leg.path("ident").asString("").equals(runway)) {
                     return legs;
                 }
             }
@@ -109,12 +109,12 @@ public class FlightPlanMapper {
 
     private void validateLeg(JsonNode leg, String segmentName, boolean departure) {
 
-        String name = leg.path("ident").asText("");
-        String type = leg.path("effectiveType").asText(leg.path("definition").path("type").asText());
+        String name = leg.path("ident").asString("");
+        String type = leg.path("effectiveType").asString(leg.path("definition").path("type").asString(""));
         boolean supportedType = FIX_LEG_TYPES.contains(type)
                 || (departure && DEPARTURE_ALTITUDE_LEG_TYPES.contains(type));
 
-        if (!leg.isObject() || leg.path("isDiscontinuity").asBoolean() || name.isBlank()
+        if (!leg.isObject() || leg.path("isDiscontinuity").asBoolean(false) || name.isBlank()
                 || name.length() > 32 || !supportedType) {
             throw invalid("Discontinuity, hold, vector or unsupported leg in " + segmentName + ". Resolve it before import.");
         }
@@ -128,7 +128,7 @@ public class FlightPlanMapper {
 
     private Altitude readAltitude(JsonNode source) {
 
-        String descriptor = source.path("altitudeDescriptor").asText("");
+        String descriptor = source.path("altitudeDescriptor").asString("");
 
         return switch (descriptor) {
             case "", "0" -> new Altitude(null, null, null);
@@ -144,7 +144,7 @@ public class FlightPlanMapper {
 
     private Integer readMaximumSpeed(JsonNode source) {
 
-        String descriptor = source.path("speedDescriptor").asText("");
+        String descriptor = source.path("speedDescriptor").asString("");
 
         if (descriptor.isEmpty() && !source.hasNonNull("speed")) {
             return null;

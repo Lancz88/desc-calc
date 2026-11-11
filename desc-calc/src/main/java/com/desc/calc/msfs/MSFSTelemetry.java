@@ -1,6 +1,6 @@
 package com.desc.calc.msfs;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 /** Latest optional simulator readings. Missing or disconnected values are null. */
 public record MSFSTelemetry(boolean panelConnected, Double groundSpeedKnots, String nextWaypoint,
@@ -14,7 +14,7 @@ public record MSFSTelemetry(boolean panelConnected, Double groundSpeedKnots, Str
 
         JsonNode telemetry = status.diagnostics().path("telemetry");
         JsonNode waypoint = telemetry.path("nextWaypoint");
-        String name = waypoint.isTextual() && !waypoint.textValue().isBlank() ? waypoint.textValue() : null;
+        String name = waypoint.isString() && !waypoint.stringValue().isBlank() ? waypoint.stringValue() : null;
 
         return new MSFSTelemetry(true, number(telemetry.path("groundSpeedKnots")), name,
                 number(telemetry.path("distanceToNextWaypointNm")));

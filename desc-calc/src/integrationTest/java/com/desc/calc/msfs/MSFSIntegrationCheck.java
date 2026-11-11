@@ -5,11 +5,12 @@ import com.desc.calc.processor.obj.Waypoint;
 import com.desc.calc.web.service.WebDescentService;
 import com.desc.calc.web.service.WebPlanDTO;
 import org.springframework.validation.BeanPropertyBindingResult;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -29,7 +30,7 @@ import java.util.regex.Pattern;
 /** Exercises the real application and panel API with a synthetic panel. */
 public class MSFSIntegrationCheck {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = JsonMapper.builder().build();
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
     private static int checks;
 
@@ -43,8 +44,10 @@ public class MSFSIntegrationCheck {
             checkRecordedSnapshot(Path.of(args[0]), Path.of(args[1]));
         }
 
+        Path archiveFolder = Files.createTempDirectory(Files.createDirectories(Path.of("build/tmp")), "msfs-check-");
         try (var context = (ServletWebServerApplicationContext) SpringApplication.run(SpringApp.class,
-                "--server.port=0", "--msfs.request-timeout-ms=1500")) {
+                "--server.port=0", "--msfs.request-timeout-ms=1500",
+                "--flight-plans.file=" + archiveFolder.resolve("plans.json").toAbsolutePath())) {
             String web = "http://127.0.0.1:" + context.getWebServer().getPort();
             String panelApi = web + "/msfs";
             MSFSService service = context.getBean(MSFSService.class);
@@ -57,7 +60,7 @@ public class MSFSIntegrationCheck {
             check(Pattern.compile("<button(?=[^>]*id=\"import-flight-plan\")(?=[^>]*disabled)[^>]*>")
                     .matcher(landing).find(), "simulator import disabled without panel");
             var connection = call(web, "GET", "/flight-plan/connection", null);
-            check(json(connection).isBoolean() && !json(connection).asBoolean(), "web connection state is false");
+            check(json(connection).isBoolean() && !json(connection).asBoolean(false), "web connection state is false");
             check(connection.headers().firstValue("Cache-Control").orElse("").equals("no-store"),
                     "web connection state is not cached");
             check(call(web, "GET", "/msfs/status", null).statusCode() == 404, "no panel status endpoint");
@@ -73,7 +76,7 @@ public class MSFSIntegrationCheck {
             check(call(web, "GET", "/flight-plan/csv", null).body().contains("waypoints-paste.csv"), "CSV works disconnected");
             var invalidPoll = call(panelApi, "POST", "/poll", "[]");
             check(invalidPoll.statusCode() == 400, "reject non-object");
-            check(json(invalidPoll).path("error").asText().equals("INVALID_JSON"), "panel errors remain JSON");
+            check(json(invalidPoll).path("error").asString("").equals("INVALID_JSON"), "panel errors remain JSON");
             check(call(panelApi, "POST", "/poll", "{}junk").statusCode() == 400, "reject trailing JSON");
             check(call(panelApi, "POST", "/poll", "{\"x\":\"" + "x".repeat(17000) + "\"}").statusCode() == 413,
                     "bounded heartbeat payload");
@@ -102,13 +105,13 @@ public class MSFSIntegrationCheck {
                     """);
             JsonNode telemetry = service.getStatus().diagnostics().path("telemetry");
             check(telemetry.path("groundSpeedKnots").asDouble() == 420.25
-                    && telemetry.path("nextWaypoint").asText().equals("TELTU")
+                    && telemetry.path("nextWaypoint").asString("").equals("TELTU")
                     && telemetry.path("distanceToNextWaypointNm").asDouble() == 32.4,
                     "poll preserves optional simulator telemetry");
             var live = call(web, "GET", "/flight-plan/telemetry", null);
-            check(json(live).path("panelConnected").asBoolean()
+            check(json(live).path("panelConnected").asBoolean(false)
                     && json(live).path("groundSpeedKnots").asDouble() == 420.25
-                    && json(live).path("nextWaypoint").asText().equals("TELTU")
+                    && json(live).path("nextWaypoint").asString("").equals("TELTU")
                     && json(live).path("distanceToNextWaypointNm").asDouble() == 32.4,
                     "web telemetry returns raw readings");
             check(live.headers().firstValue("Cache-Control").orElse("").equals("no-store"),
@@ -166,7 +169,7 @@ public class MSFSIntegrationCheck {
             String connectedLanding = call(web, "GET", "/", null).body();
             check(!Pattern.compile("<button(?=[^>]*id=\"import-flight-plan\")(?=[^>]*disabled)[^>]*>")
                     .matcher(connectedLanding).find(), "simulator import enabled after heartbeat");
-            check(json(call(web, "GET", "/flight-plan/connection", null)).asBoolean(), "web connection state is true");
+            check(json(call(web, "GET", "/flight-plan/connection", null)).asBoolean(false), "web connection state is true");
             var imported = async(web, "/flight-plan");
             String id = command(panelApi);
             check(call(web, "GET", "/flight-plan", null).statusCode() == 409, "concurrent import rejected");
@@ -200,7 +203,7 @@ public class MSFSIntegrationCheck {
             var nextImport = async(web, "/flight-plan");
             String second = command(panelApi);
             check(!id.equals(second), "each request has a fresh id");
-            ObjectNode changedSnapshot = snapshot.deepCopy();
+            ObjectNode changedSnapshot = (ObjectNode) snapshot.deepCopy();
             ((ObjectNode) changedSnapshot.at("/activePlan/segments/approachSegment/allLegs/0")).put("ident", "FIXD");
             call(panelApi, "POST", "/flightplan/" + second + "?kind=ok", changedSnapshot.toString());
             String nextPage = nextImport.get(4, TimeUnit.SECONDS).body();
@@ -225,10 +228,12 @@ public class MSFSIntegrationCheck {
             check(call(web, "GET", "/flight-plan/csv", null).statusCode() == 200, "CSV survives panel failure");
             Thread.sleep(5100);
             check(!service.getStatus().panelConnected(), "heartbeat expires");
-            check(!json(call(web, "GET", "/flight-plan/connection", null)).asBoolean(), "web connection follows expiry");
+            check(!json(call(web, "GET", "/flight-plan/connection", null)).asBoolean(false), "web connection follows expiry");
             checkShutdown(context.getBean(MSFSAdapter.class));
         } finally {
             CLIENT.close();
+            Files.deleteIfExists(archiveFolder.resolve("plans.json"));
+            Files.deleteIfExists(archiveFolder);
         }
 
         System.out.println("PASS: " + checks + " MSFS mapper, panel protocol and MVC checks (simulated panel).");
@@ -237,25 +242,26 @@ public class MSFSIntegrationCheck {
     private static void checkMapper(JsonNode snapshot) {
 
         FlightPlanMapper mapper = new FlightPlanMapper();
+        rejects(() -> mapper.toWaypoints(JSON.createObjectNode()), "missing snapshot fields rejected cleanly");
         List<Waypoint> points = mapper.toWaypoints(snapshot);
         check(points.size() == 3 && points.get(0).getName().equals("FIXC"), "destination-first route");
         check(points.get(0).getDistanceToNext() == 6 && points.get(1).getDistanceToNext() == 9
                 && points.get(2).getDistanceToNext() == 12, "next-leg geometry rounded once");
         check(points.get(0).getAltAbove() == 4000 && points.get(0).getAltHold() == null, "H constraint minimum");
         check(points.get(1).getAltHold() == 5000 && points.get(1).getSpeed() == 210, "pilot constraints override database");
-        ObjectNode invalid = snapshot.deepCopy();
+        ObjectNode invalid = (ObjectNode) snapshot.deepCopy();
         ((ObjectNode) invalid.at("/activePlan/segments/enrouteSegment/allLegs/0")).put("isDiscontinuity", true);
         rejects(() -> mapper.toWaypoints(invalid), "discontinuity rejected");
-        ObjectNode missing = snapshot.deepCopy();
+        ObjectNode missing = (ObjectNode) snapshot.deepCopy();
         ((ObjectNode) missing.at("/activePlan/segments/approachSegment/allLegs/1/calculated")).remove("distanceWithTransitions");
         rejects(() -> mapper.toWaypoints(missing), "missing geometry rejected");
-        ObjectNode speed = snapshot.deepCopy();
+        ObjectNode speed = (ObjectNode) snapshot.deepCopy();
         ((ObjectNode) speed.at("/activePlan/segments/enrouteSegment/allLegs/1/pilotEnteredSpeedConstraint")).put("speedDescriptor", "+");
         rejects(() -> mapper.toWaypoints(speed), "minimum speed not silently treated as maximum");
     }
 
     private static ObjectNode withDeparture(JsonNode snapshot) {
-        ObjectNode extended = snapshot.deepCopy();
+        ObjectNode extended = (ObjectNode) snapshot.deepCopy();
         ObjectNode segments = (ObjectNode) extended.at("/activePlan/segments");
         // Intentionally insert segments out of flight order; the mapper must use FBW's route order.
         segments.putObject("departureEnrouteTransitionSegment").putArray("allLegs")
@@ -313,14 +319,14 @@ public class MSFSIntegrationCheck {
         var discontinuity = extended.deepCopy();
         ((ObjectNode) discontinuity.at("/activePlan/segments/departureSegment/allLegs/0")).put("isDiscontinuity", true);
         rejects(() -> mapper.toWaypoints(discontinuity), "departure discontinuity still rejected");
-        var specialArrival = snapshot.deepCopy();
+        var specialArrival = (ObjectNode) snapshot.deepCopy();
         ((ObjectNode) specialArrival.at("/activePlan/segments/approachSegment/allLegs/0")).put("effectiveType", "CA");
         rejects(() -> mapper.toWaypoints(specialArrival), "altitude-leg approximation is restricted to departure");
 
         for (String path : List.of("/activePlan/segments/enrouteSegment/allLegs/1/calculated",
                 "/activePlan/segments/approachSegment/allLegs/1/calculated")) {
             for (double distance : List.of(0.0, .2, .499, .5, 1.49, 1.5)) {
-                var shortLeg = snapshot.deepCopy();
+                var shortLeg = (ObjectNode) snapshot.deepCopy();
                 ((ObjectNode) shortLeg.at(path)).put("distanceWithTransitions", distance);
                 var mapped = mapper.toWaypoints(shortLeg);
                 int index = path.contains("enrouteSegment") ? 2 : 0;
@@ -328,7 +334,7 @@ public class MSFSIntegrationCheck {
                         "valid short geometry retains waypoint/constraints with minimum one NM: " + distance);
             }
             for (double invalid : List.of(-.01, Double.NaN, Double.POSITIVE_INFINITY, 10000.1)) {
-                var broken = snapshot.deepCopy();
+                var broken = (ObjectNode) snapshot.deepCopy();
                 ((ObjectNode) broken.at(path)).put("distanceWithTransitions", invalid);
                 rejects(() -> mapper.toWaypoints(broken), "minimum does not replace invalid geometry: " + invalid);
             }
@@ -416,7 +422,7 @@ public class MSFSIntegrationCheck {
         // The manually pasted terminal capture contains raw line breaks inside path strings.
         // Only this historical fixture is read leniently; live panel JSON stays strict.
         JsonNode recorded = JSON.reader()
-                .with(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature())
+                .with(tools.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
                 .readTree(Files.readString(snapshot));
         List<Waypoint> points = new FlightPlanMapper().toWaypoints(recorded);
         List<String> rows = Files.readAllLines(expected);
@@ -472,7 +478,7 @@ public class MSFSIntegrationCheck {
             JsonNode result = json(call(panelApi, "POST", "/poll", "{}"));
 
             if (result.has("requestId")) {
-                return result.get("requestId").asText();
+                return result.get("requestId").asString("");
             }
 
             Thread.sleep(10);

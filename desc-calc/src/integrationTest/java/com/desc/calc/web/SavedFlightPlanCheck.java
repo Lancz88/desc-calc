@@ -3,9 +3,10 @@ package com.desc.calc.web;
 import com.desc.calc.SpringApp;
 import com.desc.calc.web.service.*;
 import com.desc.calc.web.service.save.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -16,7 +17,7 @@ import java.util.*;
 
 /** Real local file and MVC checks; never touches the user's saved-plan archive. */
 public class SavedFlightPlanCheck {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = JsonMapper.builder().build();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .cookieHandler(new java.net.CookieManager(null, java.net.CookiePolicy.ACCEPT_ALL)).build();
     private static int checks;
@@ -27,6 +28,7 @@ public class SavedFlightPlanCheck {
         try {
             var service = service(file);
             check(service.list().isEmpty() && !Files.exists(file), "empty library creates no file");
+            checkLegacyArchive(file);
             var form = form();
             var saved = service.save(form, "  Practice <route>  ");
             check(saved.name().equals("Practice <route>"), "trim names, preserve plain text");
@@ -53,7 +55,7 @@ public class SavedFlightPlanCheck {
             catch (FlightPlanFileStore.StorageException expected) { check(Files.readString(file).equals("broken JSON"), "corrupt file not overwritten"); }
             Files.writeString(file, before);
             var document = JSON.readTree(before);
-            ((com.fasterxml.jackson.databind.node.ObjectNode) document).put("version", 99);
+            ((tools.jackson.databind.node.ObjectNode) document).put("version", 99);
             Files.writeString(file, document.toString());
             try { service.list(); throw new AssertionError("unsupported version accepted"); }
             catch (FlightPlanFileStore.StorageException expected) { checks++; }
@@ -157,6 +159,30 @@ public class SavedFlightPlanCheck {
         return new SavedFlightPlanService(new FlightPlanFileStore(JSON, path.toString()));
     }
 
+    /** Literal version-1 schema from the Jackson 2 era, independent of the new writer. */
+    private static void checkLegacyArchive(Path file) throws Exception {
+        String legacy = """
+                {"version":1,"plans":[{"id":"legacy-plan","name":"Legacy route",
+                "savedAt":"2026-11-10T12:00:00Z","plan":{"cruiseAltitude":39000,
+                "initialSpeed":290,"tdExtraDistance":7,"preparationLeadDistance":41,
+                "waypoints":[{"idx":1,"name":"FINAL","distanceToNext":12,
+                "altHold":4000,"altAbove":3000,"altBelow":5000,"speed":180},
+                {"idx":2,"name":"START","distanceToNext":55,"altHold":null,
+                "altAbove":null,"altBelow":null,"speed":null}]}}]}
+                """;
+        Files.writeString(file, legacy);
+        var store = new FlightPlanFileStore(JSON, file.toString());
+        var archived = store.read();
+        check(archived.size() == 1 && archived.get(0).name().equals("Legacy route"),
+                "Jackson 2 version-1 archive remains readable");
+        check(JSON.valueToTree(archived.get(0).plan()).equals(JSON.valueToTree(form())),
+                "legacy archive preserves all settings, constraints and nulls");
+        store.write(archived);
+        check(JSON.readTree(file.toFile()).equals(JSON.readTree(legacy)),
+                "rewriting a legacy archive preserves the JSON schema and values");
+        Files.delete(file);
+    }
+
     private static WebPlanDTO form() {
         var form = new WebPlanDTO();
         form.setCruiseAltitude(39000); form.setInitialSpeed(290);
@@ -174,11 +200,11 @@ public class SavedFlightPlanCheck {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("planName", name);
         var tree = JSON.valueToTree(form);
-        for (String key : List.of("cruiseAltitude", "initialSpeed", "tdExtraDistance", "preparationLeadDistance")) fields.put(key, tree.path(key).asText());
+        for (String key : List.of("cruiseAltitude", "initialSpeed", "tdExtraDistance", "preparationLeadDistance")) fields.put(key, tree.path(key).asString(""));
         for (int i = 0; i < form.getWaypoints().size(); i++) {
             var row = tree.path("waypoints").get(i);
             for (String key : List.of("idx", "name", "distanceToNext", "altHold", "altAbove", "altBelow", "speed")) {
-                fields.put("waypoints[" + i + "]." + key, row.path(key).isNull() ? "" : row.path(key).asText());
+                fields.put("waypoints[" + i + "]." + key, row.path(key).isNull() ? "" : row.path(key).asString(""));
             }
         }
         return fields;

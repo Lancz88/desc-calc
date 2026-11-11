@@ -1,7 +1,8 @@
 package com.desc.calc.simbrief;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -67,7 +68,7 @@ public class SimBriefService {
         String jsonString = response.body();
 
         // Parse JSON
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = JsonMapper.builder().build();
         JsonNode root = mapper.readTree(jsonString);
 
         JsonNode waypointsRaw = root.get("navlog").get("fix");
@@ -84,8 +85,8 @@ public class SimBriefService {
         List<SimBriefWaypoint> result = new ArrayList<>();
         int idx = 0;
         for (JsonNode wp : raw) {
-            result.add(new SimBriefWaypoint(idx, wp.get("ident").asText(),
-                    wp.get("type").asText(), wp.get("distance").asInt()));
+            result.add(new SimBriefWaypoint(idx, wp.get("ident").asString(""),
+                    wp.get("type").asString(""), wp.get("distance").asInt(0)));
             idx++;
         }
         return result;

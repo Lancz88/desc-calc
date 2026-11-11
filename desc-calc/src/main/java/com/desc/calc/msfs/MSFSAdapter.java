@@ -1,7 +1,7 @@
 package com.desc.calc.msfs;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -171,7 +171,7 @@ public class MSFSAdapter {
             PanelResult result = request.result.get(requestTimeoutMs, TimeUnit.MILLISECONDS);
 
             if (result.status() != 200) {
-                throw failure(result.status(), result.content().path("error").asText("FBW_READ_FAILED"),
+                throw failure(result.status(), result.content().path("error").asString("FBW_READ_FAILED"),
                         "The simulator could not return a flight plan. Check the panel status and loaded route.");
             }
             return result.content();

@@ -1,6 +1,7 @@
 package com.desc.calc.web.service.save;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
@@ -43,7 +44,7 @@ public class FlightPlanFileStore {
             temporary = Files.createTempFile(file.getParent(), "flight-plans-", ".tmp");
             json.writerWithDefaultPrettyPrinter().writeValue(temporary.toFile(), new Archive(VERSION, plans));
             Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException exception) {
+        } catch (IOException | JacksonException exception) {
             throw new StorageException("Couldn't save this plan. Please try again.", exception);
         } finally {
             if (temporary != null) {

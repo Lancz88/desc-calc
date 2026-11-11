@@ -1,6 +1,6 @@
 plugins {
-    id 'org.springframework.boot' version '3.4.4'
-    id 'io.spring.dependency-management' version '1.1.6'
+    id 'org.springframework.boot' version '4.1.2'
+    id 'io.spring.dependency-management' version '1.1.7'
     id 'java'
     id 'war'
 }
@@ -8,15 +8,23 @@ plugins {
 group = 'com.getbridge'
 version = '1.0-SNAPSHOT'
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+}
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
-    implementation("org.apache.commons:commons-csv:1.14.0")
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation("org.apache.commons:commons-csv:1.14.1")
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 }
@@ -25,7 +33,7 @@ test {
     useJUnitPlatform()
 }
 
-// Real loopback HTTP checks with a simulated panel; no MSFS or test dependency downloads.
+// Real loopback HTTP checks with a simulated panel; no MSFS or test libraries required.
 sourceSets {
     msfsIntegration {
         java.srcDir 'src/integrationTest/java'
