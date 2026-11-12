@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#101e31">
     <title>GlidePath: Itinerary</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" th:href="@{/images/favicon.svg}">
-    <link rel="stylesheet" href="/css/home.css?v=20261110-glidepath" th:href="@{/css/home.css(v='20261110-glidepath')}">
+    <link rel="stylesheet" href="/css/home.css?v=20261111-milestone-cards" th:href="@{/css/home.css(v='20261111-milestone-cards')}">
     <script defer src="/js/telemetry.js?v=20261111-prep-runway" th:src="@{/js/telemetry.js(v='20261111-prep-runway')}"></script>
 </head>
 <body class="plan-page">
@@ -129,7 +129,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="editor-notice"><span class="notice-symbol" aria-hidden="true">i</span><p>Distances in NM · altitudes in FT · speeds in KT · descent angles in degrees.<br>T/D is not corrected for wind.</p></div>
+                <div class="editor-notice"><span class="notice-symbol" aria-hidden="true">i</span><p>Distances in NM · altitudes in FT · speeds in KT.</p></div>
                 <div class="result-actions">
                     <button type="submit" form="edit-plan" class="back-link result-back">← Edit flight plan</button>
                     <details class="text-itinerary"><summary>View text itinerary</summary><pre class="itinerary" th:text="${plan.itinerary}"></pre></details>
